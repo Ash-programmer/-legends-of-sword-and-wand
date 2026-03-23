@@ -18,4 +18,8 @@ public class AuthController {
     public User login(String username, String password) {
         return authService.login(username, password);
     }
+
+    public void logout() {
+        authService.logout();
+    }
 }

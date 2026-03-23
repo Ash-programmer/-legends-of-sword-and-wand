@@ -1,4 +1,4 @@
-package com.example.ui;
+package com.example;
 
 import com.example.controllers.*;
 import com.example.persistence.repositories.*;

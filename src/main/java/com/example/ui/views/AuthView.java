@@ -4,7 +4,7 @@ import com.example.controllers.AuthController;
 import com.example.domain.User;
 import com.example.domain.Hero;
 import com.example.domain.Party;
-import com.example.ui.Main;
+import com.example.Main;
 import com.example.ui.UICommands;
 
 import javax.swing.*;
@@ -95,7 +95,11 @@ public class AuthView extends JFrame implements UICommands {
             message.setText("Registered");
         else
             message.setText("Register failed");
+    }
 
+    public static void returnToLogin(AuthController controller) {
+        AuthView authView = new AuthView(controller);
+        authView.start();
     }
 
     public void start() {

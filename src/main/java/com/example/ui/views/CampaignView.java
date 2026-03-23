@@ -2,6 +2,7 @@ package com.example.ui.views;
 
 import com.example.controllers.CampaignController;
 import com.example.domain.*;
+import com.example.Main;
 import com.example.ui.UICommands;
 
 import javax.swing.*;
@@ -27,7 +28,7 @@ public class CampaignView extends JFrame implements UICommands {
     private void init() {
 
         setTitle("Campaign");
-        setSize(500,400);
+        setSize(650, 400);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
 
@@ -37,6 +38,7 @@ public class CampaignView extends JFrame implements UICommands {
         JButton next = new JButton("Next Room");
         JButton save = new JButton("Save");
         JButton end = new JButton("End Campaign");
+        JButton logout = new JButton("Logout");
 
         JPanel p = new JPanel();
 
@@ -44,6 +46,7 @@ public class CampaignView extends JFrame implements UICommands {
         p.add(next);
         p.add(save);
         p.add(end);
+        p.add(logout);
 
         add(new JScrollPane(output), BorderLayout.CENTER);
         add(p, BorderLayout.SOUTH);
@@ -52,6 +55,7 @@ public class CampaignView extends JFrame implements UICommands {
         next.addActionListener(e -> nextRoom());
         save.addActionListener(e -> save());
         end.addActionListener(e -> end());
+        logout.addActionListener(e -> logout());
     }
 
 
@@ -168,7 +172,13 @@ public class CampaignView extends JFrame implements UICommands {
 
     }
 
+    private void logout() {
 
+        Main.authController.logout();
+        dispose();
+        AuthView.returnToLogin(Main.authController);
+
+    }
 
     public void start() {
 

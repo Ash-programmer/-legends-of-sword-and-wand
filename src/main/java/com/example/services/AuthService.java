@@ -6,6 +6,7 @@ import com.example.persistence.repositories.UserRepo;
 public class AuthService {
 
     private UserRepo userRepo;
+    private User currentUser;
 
     public AuthService(UserRepo userRepo) {
         this.userRepo = userRepo;
@@ -50,6 +51,16 @@ public class AuthService {
             return null;
         }
 
+        currentUser = user;
+
         return user;
+    }
+
+    public void logout() {
+        currentUser = null;
+    }
+
+    public User getCurrentUser() {
+        return currentUser;
     }
 }
