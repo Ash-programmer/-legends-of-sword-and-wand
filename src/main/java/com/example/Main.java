@@ -15,7 +15,6 @@ public class Main {
         CampaignRepo campaignRepo = new CampaignRepo();
         PartyRepo partyRepo = new PartyRepo();
 
-
         // ---------- SERVICES ----------
 
         AuthService authService = new AuthService(userRepo);
