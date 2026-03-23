@@ -2,6 +2,7 @@ package com.example.ui.views;
 
 import com.example.controllers.AuthController;
 import com.example.domain.User;
+import com.example.ui.UICommands;
 
 import javax.swing.*;
 import java.awt.*;

@@ -1,7 +1,7 @@
 package com.example.persistence.repositories;
 
 import com.example.domain.Campaign;
-import com.example.persistence.sql.GameDB;
+import com.example.persistence.GameDB;
 
 public class CampaignRepo {
 

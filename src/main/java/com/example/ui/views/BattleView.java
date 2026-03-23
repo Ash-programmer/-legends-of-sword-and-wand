@@ -1,7 +1,13 @@
 package com.example.ui.views;
 
 import com.example.controllers.BattleController;
-import com.example.domain.*;
+import com.example.domain.Action;
+import com.example.domain.ActionType;
+import com.example.domain.BattleResult;
+import com.example.domain.BattleState;
+import com.example.domain.Hero;
+import com.example.domain.Party;
+import com.example.ui.UICommands;
 
 import javax.swing.*;
 import java.awt.*;
@@ -35,7 +41,7 @@ public class BattleView extends JFrame implements UICommands {
         p.add(attack);
 
         add(new JScrollPane(output),BorderLayout.CENTER);
-        add(p,BorderLayout.SOUTH);
+        add(p, BorderLayout.SOUTH);
 
         start.addActionListener(e -> startBattle());
         attack.addActionListener(e -> attack());

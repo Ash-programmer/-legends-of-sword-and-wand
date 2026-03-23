@@ -13,7 +13,7 @@ public class Hero {
     private int defense;
     private int experience;
 
-    public hero(String name, String type) {
+    public Hero(String name, String type) {
         this.name = name;
         this.type = type;
 
