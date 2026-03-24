@@ -70,7 +70,7 @@ public class BattleView extends JFrame implements UICommands {
                 state.getEnemyParty().getHeroes().get(0);
 
         Action act =
-                new Action(ActionType.ATTACK,actor,target);
+                new Action(ActionType.ATTACK, actor, target, 0);
 
         BattleResult r =
                 controller.executeTurn(state,act);

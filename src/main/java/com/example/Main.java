@@ -28,7 +28,6 @@ public class Main {
 
 
         // ---------- SERVICES ----------
-
         AuthService authService =
                 new AuthService(userRepo, campaignRepo);
 

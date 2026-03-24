@@ -4,7 +4,7 @@ import com.example.domain.Hero;
 
 public class DefendCommand implements Command {
 
-    private Hero actor;
+    private final Hero actor;
 
     public DefendCommand(Hero actor) {
         this.actor = actor;
@@ -12,8 +12,7 @@ public class DefendCommand implements Command {
 
     @Override
     public void execute() {
-
-        actor.heal(5);
-
+        actor.heal(10);
+        actor.addMana(5);
     }
 }

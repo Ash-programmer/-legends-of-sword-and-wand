@@ -5,20 +5,30 @@ import com.example.domain.BattleResult;
 import com.example.domain.BattleState;
 import com.example.domain.Party;
 import com.example.services.BattleService;
+import com.example.services.usecases.ExecuteTurnUseCase;
+import com.example.services.usecases.StartBattleUseCase;
 
 public class BattleController {
 
-    private BattleService battleService;
+    private final StartBattleUseCase startBattleUseCase;
+    private final ExecuteTurnUseCase executeTurnUseCase;
 
     public BattleController(BattleService battleService) {
-        this.battleService = battleService;
+        this.startBattleUseCase = new StartBattleUseCase();
+        this.executeTurnUseCase = new ExecuteTurnUseCase();
     }
 
     public BattleState startBattle(Party player, Party enemy) {
-        return battleService.startBattle(player, enemy);
+        return startBattleUseCase.execute(player, enemy);
     }
 
     public BattleResult executeTurn(BattleState state, Action action) {
-        return battleService.executeTurn(state, action);
+        BattleResult result = executeTurnUseCase.execute(state, action);
+
+        if (state.isFinished()) {
+            startBattleUseCase.clearBattle();
+        }
+
+        return result;
     }
 }

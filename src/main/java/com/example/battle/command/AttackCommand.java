@@ -4,20 +4,19 @@ import com.example.domain.Hero;
 
 public class AttackCommand implements Command {
 
-    private Hero actor;
-    private Hero target;
+    private final Hero actor;
+    private final Hero target;
 
     public AttackCommand(Hero actor, Hero target) {
-        this.actor = actor;
+        this.actor  = actor;
         this.target = target;
     }
 
     @Override
     public void execute() {
+        if (target == null) return;
 
-        if (target != null) {
-            target.takeDamage(actor.getAttack());
-        }
-
+        int damage = Math.max(0, actor.getAttack() - target.getDefense());
+        target.takeDamage(damage);
     }
 }
