@@ -38,14 +38,12 @@ public class Campaign {
 
     public void advanceRoom() {
         currentRoom++;
-
         if (currentRoom > 30) {
             finished = true;
         }
     }
 
     public boolean isBattleRoom() {
-        // 60% battle chance
         return Math.random() < 0.6;
     }
 
@@ -54,9 +52,7 @@ public class Campaign {
     }
 
     public void calculateFinalScore() {
-
         score += party.getGold() / 10;
-
         for (Hero h : party.getHeroes()) {
             score += h.getLevel() * 100;
         }

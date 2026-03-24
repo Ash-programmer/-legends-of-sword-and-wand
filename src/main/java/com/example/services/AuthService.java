@@ -1,15 +1,19 @@
 package com.example.services;
 
 import com.example.domain.User;
+import com.example.domain.Campaign;
 import com.example.persistence.repositories.UserRepo;
+import com.example.persistence.repositories.CampaignRepo;
 
 public class AuthService {
 
     private UserRepo userRepo;
+    private CampaignRepo campaignRepo;
     private User currentUser;
 
-    public AuthService(UserRepo userRepo) {
+    public AuthService(UserRepo userRepo, CampaignRepo campaignRepo) {
         this.userRepo = userRepo;
+        this.campaignRepo = campaignRepo;
     }
 
     public boolean register(String username, String password) {
@@ -49,6 +53,13 @@ public class AuthService {
 
         if (!user.getPasswordHash().equals(hash)) {
             return null;
+        }
+
+        // Load the saved campaign for this user if it exists
+        Campaign savedCampaign = campaignRepo.loadByUserId(user.getUserId());
+        if (savedCampaign != null) {
+            user.getCampaigns().clear();
+            user.addCampaign(savedCampaign);
         }
 
         currentUser = user;

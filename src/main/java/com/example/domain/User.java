@@ -8,7 +8,6 @@ public class User {
     private int userId;
     private String username;
     private String passwordHash;
-
     private List<Campaign> campaigns;
     private List<Party> savedParties;
 
@@ -16,7 +15,6 @@ public class User {
         this.userId = userId;
         this.username = username;
         this.passwordHash = passwordHash;
-
         this.campaigns = new ArrayList<>();
         this.savedParties = new ArrayList<>();
     }
@@ -42,15 +40,15 @@ public class User {
     }
 
     public void addCampaign(Campaign campaign) {
-        campaigns.add(campaign);
+        if (!campaigns.contains(campaign)) {
+            campaigns.add(campaign);
+        }
     }
 
     public void addParty(Party party) {
-
         if (savedParties.size() >= 5) {
             savedParties.remove(0);
         }
-
         savedParties.add(party);
     }
 

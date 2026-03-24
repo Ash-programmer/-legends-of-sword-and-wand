@@ -23,8 +23,8 @@ public class CampaignController {
         return campaignService.nextRoom(campaign);
     }
 
-    public void saveProgress(Campaign campaign) {
-        campaignService.saveProgress(campaign);
+    public void saveProgress(int userId, Campaign campaign) {
+        campaignService.saveProgress(userId, campaign);
     }
 
     public Score endCampaign(User user, Campaign campaign) {

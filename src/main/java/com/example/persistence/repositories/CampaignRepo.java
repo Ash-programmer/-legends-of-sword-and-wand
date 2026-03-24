@@ -7,11 +7,11 @@ public class CampaignRepo {
 
     private GameDB db = GameDB.getInstance();
 
-    public void save(Campaign c) {
-        db.saveCampaign(c);
+    public void save(int userId, Campaign c) {
+        db.saveCampaign(userId, c);
     }
 
-    public Campaign loadByUserId(int id) {
-        return db.loadCampaign(id);
+    public Campaign loadByUserId(int userId) {
+        return db.loadCampaign(userId);
     }
 }

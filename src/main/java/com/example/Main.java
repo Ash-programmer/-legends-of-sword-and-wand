@@ -30,7 +30,7 @@ public class Main {
         // ---------- SERVICES ----------
 
         AuthService authService =
-                new AuthService(userRepo);
+                new AuthService(userRepo, campaignRepo);
 
         PartyService partyService =
                 new PartyService();

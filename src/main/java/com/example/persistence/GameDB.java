@@ -42,12 +42,12 @@ public class GameDB {
 
     // ---------- CAMPAIGN ----------
 
-    public void saveCampaign(Campaign campaign) {
-        campaigns.put(campaign.getCurrentRoom(), campaign);
+    public void saveCampaign(int userId, Campaign campaign) {
+        campaigns.put(userId, campaign);
     }
 
-    public Campaign loadCampaign(int id) {
-        return campaigns.get(id);
+    public Campaign loadCampaign(int userId) {
+        return campaigns.get(userId);
     }
 
     // ---------- PARTY ----------

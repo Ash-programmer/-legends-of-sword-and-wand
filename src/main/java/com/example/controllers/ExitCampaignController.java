@@ -11,14 +11,11 @@ public class ExitCampaignController {
         this.campaignService = campaignService;
     }
 
-    public boolean exitCampaign(Campaign campaign) {
-
+    public boolean exitCampaign(int userId, Campaign campaign) {
         if (campaign == null) {
             return false;
         }
-
-        campaignService.saveProgress(campaign);
-
+        campaignService.saveProgress(userId, campaign);
         return true;
     }
 }
