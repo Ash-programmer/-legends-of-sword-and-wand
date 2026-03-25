@@ -1,5 +1,6 @@
 package com.example.domain;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -16,6 +17,7 @@ public class Hero {
     private int defense;
     private int experience;
     private int shield = 0;
+    private boolean stunned = false;
 
     public Hero(String name, String type) {
         this.name = name;
@@ -30,41 +32,16 @@ public class Hero {
         this.experience = 0;
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public int getLevel() {
-        return level;
-    }
-
-    public int getHp() {
-        return hp;
-    }
-
-    public int getMaxHp() {
-        return maxHp;
-    }
-
-    public int getMana() {
-        return mana;
-    }
-
-    public int getAttack() {
-        return attack;
-    }
-
-    public int getDefense() {
-        return defense;
-    }
-
-    public boolean isAlive() {
-        return hp > 0;
-    }
+    public String getName()    { return name; }
+    public String getType()    { return type; }
+    public int getLevel()      { return level; }
+    public int getHp()         { return hp; }
+    public int getMaxHp()      { return maxHp; }
+    public int getMana()       { return mana; }
+    public int getAttack()     { return attack; }
+    public int getDefense()    { return defense; }
+    public boolean isAlive()   { return hp > 0; }
+    public boolean isStunned() { return stunned; }
 
     public void takeDamage(int damage) {
         int finalDamage = damage - defense;
@@ -89,8 +66,117 @@ public class Hero {
         this.mana += amount;
     }
 
+    public void replenishMana(int amount) {
+        this.mana += amount;
+    }
+
     public void addShield(int amount) {
         this.shield += amount;
+    }
+
+    public void setStunned(boolean stunned) {
+        this.stunned = stunned;
+    }
+
+    public void clearStun() {
+        this.stunned = false;
+    }
+
+    public boolean hasManaFor(Action action) {
+        return this.mana >= action.getManaCost();
+    }
+
+    public void spendMana(int amount) {
+        this.mana -= amount;
+        if (this.mana < 0) this.mana = 0;
+    }
+
+    public void castSpecial(Hero target, Party playerParty, Party enemyParty) {
+        switch (type) {
+            case "Order"   -> castOrderSpecial(target, playerParty, enemyParty);
+            case "Chaos"   -> castChaosSpecial(target, playerParty, enemyParty);
+            case "Warrior" -> castWarriorSpecial(target, playerParty, enemyParty);
+            case "Mage"    -> castMageSpecial(target, playerParty, enemyParty);
+        }
+    }
+
+    private void castOrderSpecial(Hero target, Party playerParty, Party enemyParty) {
+        if (target != null && mana >= 35) {
+            spendMana(35);
+            Hero lowest = playerParty.getHeroes().stream()
+                    .filter(Hero::isAlive)
+                    .min((a, b) -> Integer.compare(a.getHp(), b.getHp()))
+                    .orElse(null);
+            if (lowest != null) {
+                lowest.heal((int)(lowest.getMaxHp() * 0.25));
+            }
+        } else {
+            spendMana(25);
+            for (Hero hero : playerParty.getHeroes()) {
+                if (hero.isAlive()) {
+                    hero.addShield((int)(hero.getMaxHp() * 0.10));
+                }
+            }
+        }
+    }
+
+    private void castChaosSpecial(Hero target, Party playerParty, Party enemyParty) {
+        if (mana >= 40) {
+            spendMana(40);
+            List<Hero> enemies = enemyParty.getHeroes().stream()
+                    .filter(Hero::isAlive)
+                    .collect(Collectors.toList());
+            if (target != null) {
+                enemies.remove(target);
+                Collections.shuffle(enemies);
+                enemies.add(0, target);
+            } else {
+                Collections.shuffle(enemies);
+            }
+            double damage = this.attack;
+            for (Hero enemy : enemies) {
+                enemy.takeDamage((int) damage);
+                damage *= 0.25;
+                if (damage < 1) break;
+            }
+        } else {
+            spendMana(30);
+            List<Hero> enemies = enemyParty.getHeroes().stream()
+                    .filter(Hero::isAlive)
+                    .limit(3)
+                    .collect(Collectors.toList());
+            for (Hero enemy : enemies) {
+                enemy.takeDamage(this.attack);
+            }
+        }
+    }
+
+    private void castWarriorSpecial(Hero target, Party playerParty, Party enemyParty) {
+        spendMana(60);
+        if (target != null) target.takeDamage(this.attack);
+        List<Hero> others = enemyParty.getHeroes().stream()
+                .filter(h -> h.isAlive() && !h.equals(target))
+                .limit(2)
+                .collect(Collectors.toList());
+        for (Hero h : others) {
+            h.takeDamage((int)(this.attack * 0.25));
+        }
+    }
+
+    private void castMageSpecial(Hero target, Party playerParty, Party enemyParty) {
+        spendMana(80);
+        for (Hero hero : playerParty.getHeroes()) {
+            if (hero.isAlive()) {
+                hero.addMana(30);
+            }
+        }
+        this.addMana(30);
+    }
+
+    public void loseExperiencePercent(double percent) {
+        int loss = (int)(experience * percent);
+        experience -= loss;
+        if (experience < 0) experience = 0;
     }
 
     public void gainExperience(int exp) {
@@ -118,65 +204,5 @@ public class Hero {
         mana += 2;
         attack += 1;
         defense += 1;
-    }
-
-    public boolean hasManaFor(Action action) {
-        return this.mana >= action.getManaCost();
-    }
-
-    public void spendMana(int amount) {
-        this.mana -= amount;
-        if (this.mana < 0) this.mana = 0;
-    }
-
-    public void castSpecial(Hero target, Party playerParty, Party enemyParty) {
-        switch (type) {
-
-            case "Order" -> {
-                // Protect: shield all party members for 10% of their max HP. Costs 25 mana.
-                spendMana(25);
-                for (Hero hero : playerParty.getHeroes()) {
-                    if (hero.isAlive()) {
-                        hero.addShield((int)(hero.getMaxHp() * 0.10));
-                    }
-                }
-            }
-
-            case "Chaos" -> {
-                // Fireball: hit up to 3 enemies. Costs 30 mana.
-                spendMana(30);
-                List<Hero> enemies = enemyParty.getHeroes().stream()
-                        .filter(Hero::isAlive)
-                        .limit(3)
-                        .collect(Collectors.toList());
-                for (Hero enemy : enemies) {
-                    enemy.takeDamage(this.attack);
-                }
-            }
-
-            case "Warrior" -> {
-                // Berserker attack: hit target + 2 more for 25% damage. Costs 60 mana.
-                spendMana(60);
-                if (target != null) target.takeDamage(this.attack);
-                List<Hero> others = enemyParty.getHeroes().stream()
-                        .filter(h -> h.isAlive() && !h.equals(target))
-                        .limit(2)
-                        .collect(Collectors.toList());
-                for (Hero h : others) {
-                    h.takeDamage((int)(this.attack * 0.25));
-                }
-            }
-
-            case "Mage" -> {
-                // Replenish: +30 mana to all friendlies, +60 to self. Costs 80 mana.
-                spendMana(80);
-                for (Hero hero : playerParty.getHeroes()) {
-                    if (hero.isAlive()) {
-                        hero.addMana(30);
-                    }
-                }
-                this.addMana(30); // self gets 60 total (30 from loop + 30 extra)
-            }
-        }
     }
 }
