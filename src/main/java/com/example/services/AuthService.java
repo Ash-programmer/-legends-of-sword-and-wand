@@ -1,69 +1,62 @@
 package com.example.services;
 
-import com.example.domain.User;
 import com.example.domain.Campaign;
-import com.example.persistence.repositories.UserRepo;
+import com.example.domain.Party;
+import com.example.domain.User;
 import com.example.persistence.repositories.CampaignRepo;
+import com.example.persistence.repositories.PartyRepo;
+import com.example.persistence.repositories.UserRepo;
+
+import java.util.List;
 
 public class AuthService {
 
-    private UserRepo userRepo;
-    private CampaignRepo campaignRepo;
+    private final UserRepo userRepo;
+    private final CampaignRepo campaignRepo;
+    private final PartyRepo partyRepo;
+
     private User currentUser;
 
-    public AuthService(UserRepo userRepo, CampaignRepo campaignRepo) {
+    public AuthService(UserRepo userRepo, CampaignRepo campaignRepo, PartyRepo partyRepo) {
         this.userRepo = userRepo;
         this.campaignRepo = campaignRepo;
+        this.partyRepo = partyRepo;
     }
 
     public boolean register(String username, String password) {
-
-        if (username == null || username.isEmpty()) {
-            return false;
-        }
-
-        if (password == null || password.isEmpty()) {
-            return false;
-        }
+        if (username == null || username.isBlank()) return false;
+        if (password == null || password.isBlank()) return false;
 
         User existing = userRepo.findByUsername(username);
-
-        if (existing != null) {
-            return false;
-        }
+        if (existing != null) return false;
 
         String hash = Integer.toString(password.hashCode());
-
         User user = new User(0, username, hash);
-
         userRepo.save(user);
-
         return true;
     }
 
     public User login(String username, String password) {
-
         User user = userRepo.findByUsername(username);
-
-        if (user == null) {
-            return null;
-        }
+        if (user == null) return null;
 
         String hash = Integer.toString(password.hashCode());
+        if (!user.getPasswordHash().equals(hash)) return null;
 
-        if (!user.getPasswordHash().equals(hash)) {
-            return null;
-        }
+        user.getCampaigns().clear();
+        user.getSavedParties().clear();
 
-        // Load the saved campaign for this user if it exists
         Campaign savedCampaign = campaignRepo.loadByUserId(user.getUserId());
         if (savedCampaign != null) {
-            user.getCampaigns().clear();
             user.addCampaign(savedCampaign);
         }
 
-        currentUser = user;
+        List<Party> savedParties = partyRepo.loadForUser(user.getUserId());
+        for (Party p : savedParties) {
+            user.addParty(p);
+        }
 
+        currentUser = user;
         return user;
     }
 

@@ -9,47 +9,46 @@ import java.awt.*;
 
 public class ContinueCampaignView extends JFrame implements UICommands {
 
-    private ContinueCampaignController controller;
-
-    private JTextField idField;
+    private final AppState state;
+    private final ContinueCampaignController controller;
     private JTextArea output;
 
-    public ContinueCampaignView(
-            AppState state, ContinueCampaignController controller) {
-
+    public ContinueCampaignView(AppState state, ContinueCampaignController controller) {
+        this.state = state;
         this.controller = controller;
         init();
     }
 
     private void init() {
+        setTitle("Continue Campaign");
+        setSize(420, 220);
+        setLocationRelativeTo(null);
 
-        setTitle("Continue");
-        setSize(400,200);
-
-        idField = new JTextField();
         output = new JTextArea();
+        output.setEditable(false);
 
-        JButton load = new JButton("Load");
+        JButton load = new JButton("Load My Campaign");
 
-        add(idField,BorderLayout.NORTH);
-        add(load,BorderLayout.CENTER);
-        add(output,BorderLayout.SOUTH);
+        add(load, BorderLayout.NORTH);
+        add(new JScrollPane(output), BorderLayout.CENTER);
 
-        load.addActionListener(e -> load());
+        load.addActionListener(e -> loadCampaign());
     }
 
-    private void load() {
+    private void loadCampaign() {
+        Campaign c = controller.loadCampaign(state.currentUser.getUserId());
 
-        int id =
-                Integer.parseInt(idField.getText());
+        if (c == null) {
+            output.setText("No saved campaign found.");
+            return;
+        }
 
-        Campaign c =
-                controller.loadCampaign(id);
+        state.currentCampaign = c;
+        state.currentParty = c.getParty();
+        state.currentInventory = c.getInventory();
 
-        if(c == null)
-            output.setText("None");
-        else
-            output.setText("Room "+c.getCurrentRoom());
+        output.setText("Loaded campaign.\nRoom: " + c.getCurrentRoom()
+                + "\nLast room type: " + c.getLastRoomType());
     }
 
     public void start() {

@@ -1,11 +1,11 @@
 package com.example.persistence.repositories;
 
 import com.example.domain.User;
-import com.example.persistence.GameDB;
+import com.example.persistence.sql.SqlGameDB;
 
 public class UserRepo {
 
-    private GameDB db = GameDB.getInstance();
+    private final SqlGameDB db = SqlGameDB.getInstance();
 
     public void save(User user) {
         db.saveUser(user);

@@ -1,20 +1,21 @@
 package com.example.ui.views;
 
-import com.example.ui.UICommands;
 import com.example.controllers.*;
+import com.example.ui.UICommands;
 
 import javax.swing.*;
 import java.awt.*;
 
 public class MainMenuView extends JFrame implements UICommands {
 
-    private AppState state;
+    private final AppState state;
+    private final CampaignController campaignController;
+    private final BattleController battleController;
+    private final InnController innController;
+    private final PvPInviteController pvpController;
+    private final ContinueCampaignController continueController;
 
-    private CampaignController campaignController;
-    private BattleController battleController;
-    private InnController innController;
-    private PvPInviteController pvpController;
-    private ContinueCampaignController continueController;
+    private JLabel profileLabel;
 
     public MainMenuView(
             AppState state,
@@ -35,51 +36,47 @@ public class MainMenuView extends JFrame implements UICommands {
     }
 
     private void init() {
-
         setTitle("Main Menu");
-        setSize(400,300);
+        setSize(460, 340);
         setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        JButton campaign = new JButton("Campaign");
+        profileLabel = new JLabel(profileText(), SwingConstants.CENTER);
+
+        JButton campaign = new JButton("Start / View Campaign");
         JButton battle = new JButton("Battle");
         JButton inn = new JButton("Inn");
-        JButton pvp = new JButton("PvP");
-        JButton continueBtn = new JButton("Continue");
+        JButton pvp = new JButton("PvP Invite");
+        JButton continueBtn = new JButton("Continue Campaign");
 
-        JPanel p = new JPanel(new GridLayout(5,1));
+        JPanel center = new JPanel(new GridLayout(5, 1, 5, 5));
+        center.add(campaign);
+        center.add(battle);
+        center.add(inn);
+        center.add(pvp);
+        center.add(continueBtn);
 
-        p.add(campaign);
-        p.add(battle);
-        p.add(inn);
-        p.add(pvp);
-        p.add(continueBtn);
+        add(profileLabel, BorderLayout.NORTH);
+        add(center, BorderLayout.CENTER);
 
-        add(p);
+        campaign.addActionListener(e -> new CampaignView(state, campaignController).start());
+        battle.addActionListener(e -> new BattleView(state, battleController).start());
+        inn.addActionListener(e -> new InnView(state, innController).start());
+        pvp.addActionListener(e -> new PvPInviteView(state, pvpController).start());
+        continueBtn.addActionListener(e -> new ContinueCampaignView(state, continueController).start());
+    }
 
-        campaign.addActionListener(e -> {
-            CampaignView v = new CampaignView(state, campaignController);
-            v.start();
-        });
+    private String profileText() {
+        int partyCount = state.currentUser.getSavedParties().size();
+        String campaignText = state.currentUser.hasCampaign() ? "yes" : "no";
 
-        battle.addActionListener(e -> {
-            BattleView v = new BattleView(state, battleController);
-            v.start();
-        });
-
-        inn.addActionListener(e -> {
-            InnView v = new InnView(state, innController);
-            v.start();
-        });
-
-        pvp.addActionListener(e -> {
-            PvPInviteView v = new PvPInviteView(state, pvpController);
-            v.start();
-        });
-
-        continueBtn.addActionListener(e -> {
-            ContinueCampaignView v = new ContinueCampaignView(state, continueController);
-            v.start();
-        });
+        return "<html><div style='text-align:center;'>"
+                + "<b>User:</b> " + state.currentUser.getUsername()
+                + " &nbsp; <b>Score:</b> " + state.currentUser.getScore()
+                + " &nbsp; <b>Ranking:</b> " + state.currentUser.getRanking()
+                + " &nbsp; <b>Saved Parties:</b> " + partyCount
+                + " &nbsp; <b>Active Campaign:</b> " + campaignText
+                + "</div></html>";
     }
 
     public void start() {

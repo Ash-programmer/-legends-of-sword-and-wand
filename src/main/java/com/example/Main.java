@@ -3,11 +3,9 @@ package com.example;
 import com.example.controllers.*;
 import com.example.persistence.repositories.*;
 import com.example.services.*;
-import com.example.ui.views.*;
+import com.example.ui.views.AuthView;
 
 public class Main {
-
-    // ---------- CONTROLLERS (GLOBAL) ----------
 
     public static AuthController authController;
     public static CampaignController campaignController;
@@ -17,79 +15,29 @@ public class Main {
     public static ContinueCampaignController continueController;
     public static ExitCampaignController exitController;
 
-
     public static void main(String[] args) {
-
-        // ---------- REPOSITORIES ----------
 
         UserRepo userRepo = new UserRepo();
         CampaignRepo campaignRepo = new CampaignRepo();
         PartyRepo partyRepo = new PartyRepo();
 
+        AuthService authService = new AuthService(userRepo, campaignRepo, partyRepo);
+        PartyService partyService = new PartyService();
+        InventoryService inventoryService = new InventoryService();
+        CampaignService campaignService = new CampaignService(campaignRepo, partyRepo, userRepo);
+        BattleService battleService = new BattleService();
+        InnService innService = new InnService(inventoryService, partyService);
+        InvitationService invitationService = new InvitationService(userRepo);
 
-        // ---------- SERVICES ----------
-        AuthService authService =
-                new AuthService(userRepo, campaignRepo);
+        authController = new AuthController(authService);
+        campaignController = new CampaignController(campaignService);
+        battleController = new BattleController(battleService);
+        innController = new InnController(innService);
+        pvpController = new PvPInviteController(invitationService);
+        continueController = new ContinueCampaignController(campaignService);
+        exitController = new ExitCampaignController(campaignService);
 
-        PartyService partyService =
-                new PartyService();
-
-        InventoryService inventoryService =
-                new InventoryService();
-
-        CampaignService campaignService =
-                new CampaignService(campaignRepo);
-
-        BattleService battleService =
-                new BattleService();
-
-        InnService innService =
-                new InnService(
-                        inventoryService,
-                        partyService
-                );
-
-        InvitationService invitationService =
-                new InvitationService(userRepo);
-
-
-        // ---------- CONTROLLERS ----------
-
-        authController =
-                new AuthController(authService);
-
-        campaignController =
-                new CampaignController(campaignService);
-
-        battleController =
-                new BattleController(battleService);
-
-        innController =
-                new InnController(innService);
-
-        pvpController =
-                new PvPInviteController(
-                        invitationService
-                );
-
-        continueController =
-                new ContinueCampaignController(
-                        campaignService
-                );
-
-        exitController =
-                new ExitCampaignController(
-                        campaignService
-                );
-
-
-        // ---------- START VIEW ----------
-
-        AuthView authView =
-                new AuthView(authController);
-
+        AuthView authView = new AuthView(authController);
         authView.start();
-
     }
-
 }

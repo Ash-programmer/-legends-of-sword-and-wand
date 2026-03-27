@@ -1,22 +1,27 @@
 package com.example.services;
 
-import com.example.domain.Campaign;
-import com.example.domain.Party;
-import com.example.domain.Room;
-import com.example.domain.Score;
-import com.example.domain.User;
+import com.example.domain.*;
 import com.example.persistence.repositories.CampaignRepo;
+import com.example.persistence.repositories.PartyRepo;
+import com.example.persistence.repositories.UserRepo;
+
+import java.util.List;
 
 public class CampaignService {
 
-    private CampaignRepo campaignRepo;
+    private final CampaignRepo campaignRepo;
+    private final PartyRepo partyRepo;
+    private final UserRepo userRepo;
 
-    public CampaignService(CampaignRepo campaignRepo) {
+    public CampaignService(CampaignRepo campaignRepo, PartyRepo partyRepo, UserRepo userRepo) {
         this.campaignRepo = campaignRepo;
+        this.partyRepo = partyRepo;
+        this.userRepo = userRepo;
     }
 
     public Campaign startCampaign(User user, Party party) {
         Campaign campaign = new Campaign(party);
+        user.getCampaigns().clear();
         user.addCampaign(campaign);
         campaignRepo.save(user.getUserId(), campaign);
         return campaign;
@@ -24,8 +29,9 @@ public class CampaignService {
 
     public Room nextRoom(Campaign campaign) {
         campaign.advanceRoom();
-        int number = campaign.getCurrentRoom();
-        return Room.randomRoom(number);
+        Room room = Room.randomRoom(campaign.getCurrentRoom());
+        campaign.setLastRoomType(room.getType());
+        return room;
     }
 
     public void saveProgress(int userId, Campaign campaign) {
@@ -36,10 +42,31 @@ public class CampaignService {
         return campaignRepo.loadByUserId(userId);
     }
 
-    public Score endCampaign(User user, Campaign campaign) {
+    public boolean canExitCampaign(boolean battleInProgress, Campaign campaign) {
+        return campaign != null && !battleInProgress;
+    }
+
+    public Score endCampaign(User user, Campaign campaign, boolean keepParty, Integer replacePartyId) {
         campaign.calculateFinalScore();
         Score score = Score.calculate(user, campaign);
-        campaignRepo.save(user.getUserId(), campaign);
+
+        user.setScore(score.getValue());
+        user.setRanking(score.getValue());
+        userRepo.save(user);
+
+        if (keepParty && campaign.getParty() != null) {
+            List<Party> savedParties = partyRepo.loadForUser(user.getUserId());
+
+            if (savedParties.size() < 5) {
+                partyRepo.save(user.getUserId(), campaign.getParty());
+            } else if (replacePartyId != null) {
+                partyRepo.delete(replacePartyId);
+                partyRepo.save(user.getUserId(), campaign.getParty());
+            }
+        }
+
+        campaign.setComplete(true);
+        campaignRepo.deleteByUserId(user.getUserId());
         return score;
     }
 }

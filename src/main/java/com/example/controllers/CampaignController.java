@@ -9,7 +9,7 @@ import com.example.services.CampaignService;
 
 public class CampaignController {
 
-    private CampaignService campaignService;
+    private final CampaignService campaignService;
 
     public CampaignController(CampaignService campaignService) {
         this.campaignService = campaignService;
@@ -27,7 +27,15 @@ public class CampaignController {
         campaignService.saveProgress(userId, campaign);
     }
 
-    public Score endCampaign(User user, Campaign campaign) {
-        return campaignService.endCampaign(user, campaign);
+    public Campaign loadCampaign(int userId) {
+        return campaignService.loadProgress(userId);
+    }
+
+    public boolean canExitCampaign(boolean battleInProgress, Campaign campaign) {
+        return campaignService.canExitCampaign(battleInProgress, campaign);
+    }
+
+    public Score endCampaign(User user, Campaign campaign, boolean keepParty, Integer replacePartyId) {
+        return campaignService.endCampaign(user, campaign, keepParty, replacePartyId);
     }
 }
