@@ -6,40 +6,40 @@ public class Campaign {
     private Party party;
     private Inventory inventory;
     private int score;
-    private boolean finished;
+    private boolean complete;
+    private RoomType lastRoomType;
 
-    public Campaign(Party party) {
-        this.party = party;
+    public Campaign() {
         this.inventory = new Inventory();
         this.currentRoom = 1;
         this.score = 0;
-        this.finished = false;
+        this.complete = false;
     }
 
-    public int getCurrentRoom() {
-        return currentRoom;
+    public Campaign(Party party) {
+        this();
+        this.party = party;
     }
 
-    public Party getParty() {
-        return party;
-    }
+    public int getCurrentRoom()         { return currentRoom; }
+    public Party getParty()             { return party; }
+    public Inventory getInventory()     { return inventory; }
+    public int getScore()               { return score; }
+    public boolean isComplete()         { return complete; }
+    public boolean isFinished()         { return complete; }
+    public RoomType getLastRoomType()   { return lastRoomType; }
 
-    public Inventory getInventory() {
-        return inventory;
-    }
-
-    public int getScore() {
-        return score;
-    }
-
-    public boolean isFinished() {
-        return finished;
-    }
+    public void setCurrentRoom(int currentRoom)     { this.currentRoom = currentRoom; }
+    public void setParty(Party party)               { this.party = party; }
+    public void setInventory(Inventory inventory)   { this.inventory = inventory; }
+    public void setScore(int score)                 { this.score = score; }
+    public void setComplete(boolean complete)       { this.complete = complete; }
+    public void setLastRoomType(RoomType type)      { this.lastRoomType = type; }
 
     public void advanceRoom() {
         currentRoom++;
         if (currentRoom > 30) {
-            finished = true;
+            complete = true;
         }
     }
 

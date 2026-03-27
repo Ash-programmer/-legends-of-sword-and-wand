@@ -5,6 +5,8 @@ import java.util.List;
 
 public class Party {
 
+    private int id;
+    private String name;
     private List<Hero> heroes;
     private int gold;
     private int maxSize;
@@ -21,73 +23,53 @@ public class Party {
         this.maxSize = maxSize;
     }
 
-    public boolean addHero(Hero hero) {
-        if (heroes.size() >= maxSize) {
-            return false;
-        }
+    public int getId(){
+        return id;
+    }
+    public String getName(){
+        return name;
+    }
+    public List<Hero> getHeroes(){
+        return heroes;
+    }
+    public int getGold()            { return gold; }
+    public int getMaxSize()         { return maxSize; }
+    public int getSize()            { return heroes.size(); }
 
+    public void setId(int id)                   { this.id = id; }
+    public void setName(String name)            { this.name = name; }
+    public void setHeroes(List<Hero> heroes)    { this.heroes = heroes; }
+
+    public boolean addHero(Hero hero) {
+        if (heroes.size() >= maxSize) return false;
         heroes.add(hero);
         return true;
     }
 
-    public boolean removeHero(Hero hero) {
-        return heroes.remove(hero);
-    }
-
-    public List<Hero> getHeroes() {
-        return heroes;
-    }
-
-    public int getSize() {
-        return heroes.size();
-    }
-
-    public boolean isFull() {
-        return heroes.size() >= maxSize;
-    }
+    public boolean removeHero(Hero hero)    { return heroes.remove(hero); }
+    public boolean isFull()                 { return heroes.size() >= maxSize; }
 
     public boolean hasLivingHeroes() {
         for (Hero h : heroes) {
-            if (h.isAlive()) {
-                return true;
-            }
+            if (h.isAlive()) return true;
         }
         return false;
     }
 
-    public void addGold(int amount) {
-        gold += amount;
-    }
+    public void addGold(int amount) { gold += amount; }
 
     public boolean spendGold(int amount) {
-        if (gold < amount) {
-            return false;
-        }
-
+        if (gold < amount) return false;
         gold -= amount;
         return true;
     }
 
-    public int getGold() {
-        return gold;
-    }
-
-    public int getMaxSize() {
-        return maxSize;
-    }
-
     public Hero getHighestLevelHero() {
-
         if (heroes.isEmpty()) return null;
-
         Hero best = heroes.get(0);
-
         for (Hero h : heroes) {
-            if (h.getLevel() > best.getLevel()) {
-                best = h;
-            }
+            if (h.getLevel() > best.getLevel()) best = h;
         }
-
         return best;
     }
 }
