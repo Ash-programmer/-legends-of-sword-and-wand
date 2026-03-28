@@ -214,13 +214,13 @@ public class BattleView extends JFrame implements UICommands {
 
         actionLocked = false;
 
-        // After a player action, exactly one enemy turn should happen if it becomes enemy turn
         if (!isPlayerTurn()) {
-            scheduleSingleEnemyTurn();
+            processSingleEnemyTurn();
         } else {
             refreshBattleView();
         }
     }
+
 
     private void useItem() {
         if (actionLocked) return;
@@ -325,23 +325,14 @@ public class BattleView extends JFrame implements UICommands {
         actionLocked = false;
 
         if (!isPlayerTurn()) {
-            scheduleSingleEnemyTurn();
+            processSingleEnemyTurn();
         } else {
             refreshBattleView();
         }
     }
 
     private void scheduleSingleEnemyTurn() {
-        if (battleState == null || battleState.isFinished()) {
-            return;
-        }
-
-        actionLocked = true;
-        setActionButtonsEnabled(false);
-
-        Timer timer = new Timer(250, e -> processSingleEnemyTurn());
-        timer.setRepeats(false);
-        timer.start();
+        processSingleEnemyTurn();
     }
 
     private void processSingleEnemyTurn() {
@@ -377,23 +368,34 @@ public class BattleView extends JFrame implements UICommands {
             return;
         }
 
-        com.example.domain.Action action =
-                new com.example.domain.Action(ActionType.ATTACK, actor, target, 0);
+        int hpBefore = target.getHp();
+        int shieldBefore = target.getShield();
+        int actorAttack = actor.getAttack();
+        int targetDefense = target.getDefense();
 
-        BattleResult result = controller.executeTurn(battleState, action);
+        target.takeDamage(actorAttack);
+
+        battleState.checkBattleEnd();
+
+        int hpAfter = target.getHp();
+        int shieldAfter = target.getShield();
+        int damageDone = hpBefore - hpAfter;
+
         log(actor.getName() + " attacked " + target.getName() + ".");
-        log(result.getMessage());
+        log("Actor attack: " + actorAttack + ", Target defense: " + targetDefense);
+        log("HP before: " + hpBefore + ", HP after: " + hpAfter +
+                ", Shield before: " + shieldBefore + ", Shield after: " + shieldAfter +
+                ", Damage dealt: " + damageDone);
 
         if (battleState.isFinished()) {
             refreshBattleView();
-            finishBattle(result);
+            finishBattle(new BattleResult(false, 0, 0, "Player lost"));
             return;
         }
 
-        actionLocked = false;
+        battleState.nextTurn();
 
-        // IMPORTANT:
-        // Hand control back to the player. Do NOT keep chaining enemy turns.
+        actionLocked = false;
         refreshBattleView();
     }
 

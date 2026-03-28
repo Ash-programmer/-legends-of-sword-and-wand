@@ -14,28 +14,20 @@ public class BattleService {
     }
 
     public BattleResult executeTurn(BattleState state, Action action) {
-        Hero actor = action.getActor();
-        Hero target = action.getTarget();
-
         if (state == null) {
             return new BattleResult(false, 0, 0, "Invalid battle state");
         }
 
-        if (actor == null) {
-            return new BattleResult(false, 0, 0, "Invalid actor");
-        }
+        Hero actor = state.getCurrentHero();
+        Hero target = action.getTarget();
 
-        Hero current = state.getCurrentHero();
-        if (current == null) {
+        if (actor == null) {
             state.checkBattleEnd();
             return new BattleResult(false, 0, 0, "No valid actor");
         }
 
-        if (actor != current) {
-            return new BattleResult(false, 0, 0, "It is not this unit's turn");
-        }
-
         if (!actor.isAlive()) {
+            state.nextTurn();
             return new BattleResult(false, 0, 0, "Actor is dead");
         }
 
