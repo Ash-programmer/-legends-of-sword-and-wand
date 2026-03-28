@@ -169,7 +169,9 @@ public class InnView extends JFrame implements UICommands {
             Main.campaignController.saveProgress(state.currentUser.getUserId(), state.currentCampaign);
         }
 
-        new BattleView(state, Main.battleController).start();
+        BattleView battleView = new BattleView(state, Main.battleController);
+        battleView.start();
+        dispose();
     }
 
     private boolean isPartyAtFullHealth() {
