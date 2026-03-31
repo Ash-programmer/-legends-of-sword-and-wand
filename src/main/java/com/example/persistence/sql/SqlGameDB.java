@@ -2,6 +2,7 @@ package com.example.persistence.sql;
 
 import com.example.domain.Campaign;
 import com.example.domain.Party;
+import com.example.domain.PvPInvite;
 import com.example.domain.User;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -45,9 +46,6 @@ public class SqlGameDB {
         );
         """;
 
-        String dropOldPartiesTable = "DROP TABLE IF EXISTS parties;";
-        String dropOldCampaignsTable = "DROP TABLE IF EXISTS campaigns;";
-
         String createCampaignsTable = """
         CREATE TABLE IF NOT EXISTS campaigns (
             user_id INTEGER PRIMARY KEY,
@@ -65,24 +63,33 @@ public class SqlGameDB {
         );
         """;
 
+        String createInvitesTable = """
+        CREATE TABLE IF NOT EXISTS pvp_invites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            from_user_id INTEGER NOT NULL,
+            from_username TEXT NOT NULL,
+            from_party_id INTEGER NOT NULL,
+            to_user_id INTEGER NOT NULL,
+            to_username TEXT NOT NULL,
+            to_party_id INTEGER,
+            status TEXT NOT NULL,
+            FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (from_party_id) REFERENCES parties(id) ON DELETE CASCADE,
+            FOREIGN KEY (to_party_id) REFERENCES parties(id) ON DELETE CASCADE
+        );
+        """;
+
         try (Connection conn = connect();
              Statement stmt = conn.createStatement()) {
-
             stmt.execute(createUsersTable);
-
-            // TEMPORARY: reset tables while developing schema
-            stmt.execute(dropOldCampaignsTable);
-            stmt.execute(dropOldPartiesTable);
-
             stmt.execute(createCampaignsTable);
             stmt.execute(createPartiesTable);
-
+            stmt.execute(createInvitesTable);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to initialize SQLite database", e);
         }
     }
-
-    // ---------- USER ----------
 
     public void saveUser(User user) {
         if (user == null) {
@@ -162,23 +169,68 @@ public class SqlGameDB {
                 if (!rs.next()) {
                     return null;
                 }
-
-                User user = new User(
-                        rs.getInt("id"),
-                        rs.getString("username"),
-                        rs.getString("password")
-                );
-                user.setGold(rs.getInt("gold"));
-                user.setScore(rs.getInt("score"));
-                user.setRanking(rs.getInt("ranking"));
-                return user;
+                return buildUser(rs);
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to load user", e);
         }
     }
 
-    // ---------- CAMPAIGN ----------
+    public User loadUserById(int userId) {
+        String sql = """
+            SELECT id, username, password, gold, score, ranking
+            FROM users
+            WHERE id = ?
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                return buildUser(rs);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load user by id", e);
+        }
+    }
+
+    public List<User> loadAllUsers() {
+        String sql = """
+            SELECT id, username, password, gold, score, ranking
+            FROM users
+            ORDER BY score DESC, username ASC
+        """;
+
+        List<User> users = new ArrayList<>();
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                users.add(buildUser(rs));
+            }
+
+            return users;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load users", e);
+        }
+    }
+
+    private User buildUser(ResultSet rs) throws SQLException {
+        User user = new User(
+                rs.getInt("id"),
+                rs.getString("username"),
+                rs.getString("password")
+        );
+        user.setGold(rs.getInt("gold"));
+        user.setScore(rs.getInt("score"));
+        user.setRanking(rs.getInt("ranking"));
+        return user;
+    }
 
     public void saveCampaign(int userId, Campaign campaign) {
         String sql = """
@@ -228,8 +280,6 @@ public class SqlGameDB {
             throw new RuntimeException("Failed to delete campaign", e);
         }
     }
-
-    // ---------- PARTY ----------
 
     public void saveParty(int userId, Party party) {
         if (party.getId() <= 0) {
@@ -329,5 +379,116 @@ public class SqlGameDB {
         } catch (SQLException e) {
             throw new RuntimeException("Failed to delete party", e);
         }
+    }
+
+    public PvPInvite saveInvite(PvPInvite invite) {
+        String sql = """
+            INSERT INTO pvp_invites (from_user_id, from_username, from_party_id, to_user_id, to_username, to_party_id, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            ps.setInt(1, invite.getFromUserId());
+            ps.setString(2, invite.getFromUsername());
+            ps.setInt(3, invite.getFromPartyId());
+            ps.setInt(4, invite.getToUserId());
+            ps.setString(5, invite.getToUsername());
+
+            if (invite.getToPartyId() == null) {
+                ps.setNull(6, Types.INTEGER);
+            } else {
+                ps.setInt(6, invite.getToPartyId());
+            }
+
+            ps.setString(7, invite.getStatus());
+            ps.executeUpdate();
+
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    invite.setId(rs.getInt(1));
+                }
+            }
+
+            return invite;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to save invite", e);
+        }
+    }
+
+    public PvPInvite loadInvite(int inviteId) {
+        String sql = "SELECT * FROM pvp_invites WHERE id = ?";
+
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, inviteId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return null;
+                return buildInvite(rs);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load invite", e);
+        }
+    }
+
+    public List<PvPInvite> loadPendingInvitesForUser(int userId) {
+        String sql = "SELECT * FROM pvp_invites WHERE to_user_id = ? AND status = 'PENDING' ORDER BY id DESC";
+        List<PvPInvite> invites = new ArrayList<>();
+
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, userId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    invites.add(buildInvite(rs));
+                }
+            }
+
+            return invites;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to load pending invites", e);
+        }
+    }
+
+    public void updateInvite(PvPInvite invite) {
+        String sql = """
+            UPDATE pvp_invites
+            SET to_party_id = ?, status = ?
+            WHERE id = ?
+        """;
+
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            if (invite.getToPartyId() == null) {
+                ps.setNull(1, Types.INTEGER);
+            } else {
+                ps.setInt(1, invite.getToPartyId());
+            }
+            ps.setString(2, invite.getStatus());
+            ps.setInt(3, invite.getId());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to update invite", e);
+        }
+    }
+
+    private PvPInvite buildInvite(ResultSet rs) throws SQLException {
+        Integer toPartyId = rs.getObject("to_party_id") == null ? null : rs.getInt("to_party_id");
+        return new PvPInvite(
+                rs.getInt("id"),
+                rs.getInt("from_user_id"),
+                rs.getString("from_username"),
+                rs.getInt("from_party_id"),
+                rs.getInt("to_user_id"),
+                rs.getString("to_username"),
+                toPartyId,
+                rs.getString("status")
+        );
     }
 }

@@ -5,6 +5,7 @@ import com.example.controllers.InnController;
 import com.example.domain.ActionResult;
 import com.example.domain.Hero;
 import com.example.domain.Item;
+import com.example.domain.RoomType;
 import com.example.domain.StatusReport;
 import com.example.ui.UICommands;
 
@@ -40,7 +41,7 @@ public class InnView extends JFrame implements UICommands {
         JButton recruitMage = new JButton("Recruit Mage");
         JButton recruitOrder = new JButton("Recruit Order");
         JButton recruitChaos = new JButton("Recruit Chaos");
-        JButton continueToBattle = new JButton("Continue to Battle");
+        JButton nextRoom = new JButton("Visit Next Room");
         JButton save = new JButton("Save Campaign");
         JButton close = new JButton("Close");
 
@@ -56,7 +57,7 @@ public class InnView extends JFrame implements UICommands {
         middle.add(recruitChaos);
 
         JPanel bottom = new JPanel();
-        bottom.add(continueToBattle);
+        bottom.add(nextRoom);
         bottom.add(save);
         bottom.add(close);
 
@@ -75,7 +76,7 @@ public class InnView extends JFrame implements UICommands {
         recruitMage.addActionListener(e -> recruit("Mage"));
         recruitOrder.addActionListener(e -> recruit("Order"));
         recruitChaos.addActionListener(e -> recruit("Chaos"));
-        continueToBattle.addActionListener(e -> continueToBattle());
+        nextRoom.addActionListener(e -> visitNextRoom());
         save.addActionListener(e -> saveCampaign());
         close.addActionListener(e -> dispose());
     }
@@ -87,20 +88,19 @@ public class InnView extends JFrame implements UICommands {
         }
 
         StatusReport report = controller.getStatus(state.currentParty);
-
         StringBuilder msg = new StringBuilder(report.getMessage());
 
-        if (!report.getRevivedHeroes().isEmpty()) {
+        if (!report.getRevivedDetails().isEmpty()) {
             msg.append("\nRevived:");
-            for (Hero h : report.getRevivedHeroes()) {
-                msg.append(" ").append(h.getName());
+            for (String line : report.getRevivedDetails()) {
+                msg.append("\n- ").append(line);
             }
         }
 
-        if (!report.getHealedHeroes().isEmpty()) {
+        if (!report.getHealedDetails().isEmpty()) {
             msg.append("\nHealed:");
-            for (Hero h : report.getHealedHeroes()) {
-                msg.append(" ").append(h.getName());
+            for (String line : report.getHealedDetails()) {
+                msg.append("\n- ").append(line);
             }
         }
 
@@ -145,42 +145,46 @@ public class InnView extends JFrame implements UICommands {
         refreshOutput(result.getMessage());
     }
 
-    private void continueToBattle() {
-        if (state.currentParty == null) {
+    private void visitNextRoom() {
+        if (state.currentCampaign == null) {
+            refreshOutput("No campaign available.");
+            return;
+        }
+
+        if (state.currentCampaign.isComplete()) {
+            refreshOutput("The campaign is already complete.");
+            return;
+        }
+
+        if (state.currentParty == null || state.currentParty.getHeroes().isEmpty()) {
             refreshOutput("No party available.");
             return;
         }
 
-        if (!isPartyAtFullHealth()) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Warning: your party is not at full health. You may still continue.",
-                    "Warning",
-                    JOptionPane.WARNING_MESSAGE
-            );
+        boolean hasLivingHero = false;
+        for (Hero h : state.currentParty.getHeroes()) {
+            if (h.isAlive()) {
+                hasLivingHero = true;
+                break;
+            }
         }
+
+        if (!hasLivingHero) {
+            refreshOutput("All heroes are down. You must rest at the inn before retrying room "
+                    + state.currentCampaign.getCurrentRoom() + ".");
+            return;
+        }
+
+        state.currentCampaign.setLastRoomType(RoomType.BATTLE);
+        Main.campaignController.saveProgress(state.currentUser.getUserId(), state.currentCampaign);
 
         state.currentlyInInn = false;
         state.currentlyInBattle = true;
         state.battleInProgress = true;
+        state.lastBattleSummary = "Entering battle room " + state.currentCampaign.getCurrentRoom() + ".";
 
-        if (state.currentCampaign != null) {
-            state.currentCampaign.setLastRoomType(com.example.domain.RoomType.BATTLE);
-            Main.campaignController.saveProgress(state.currentUser.getUserId(), state.currentCampaign);
-        }
-
-        BattleView battleView = new BattleView(state, Main.battleController);
-        battleView.start();
+        new BattleView(state, Main.battleController).start();
         dispose();
-    }
-
-    private boolean isPartyAtFullHealth() {
-        for (Hero hero : state.currentParty.getHeroes()) {
-            if (hero.getHp() < hero.getMaxHp()) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private void saveCampaign() {
@@ -198,6 +202,15 @@ public class InnView extends JFrame implements UICommands {
 
         sb.append(message).append("\n\n");
 
+        if (state.currentCampaign != null) {
+            sb.append("=== CAMPAIGN PROGRESS ===\n");
+            sb.append("Current location: ").append(state.currentCampaign.getLocationDescription()).append("\n");
+            sb.append("Next battle room: ").append(state.currentCampaign.getCurrentRoom())
+                    .append(" / ").append(com.example.domain.Campaign.FINAL_ROOM).append("\n");
+            sb.append("Rooms cleared: ").append(state.currentCampaign.getRoomsCleared()).append("\n");
+            sb.append("Rooms remaining: ").append(state.currentCampaign.getRoomsRemaining()).append("\n\n");
+        }
+
         if (state.currentParty != null) {
             sb.append("=== PARTY STATUS ===\n");
             sb.append("Gold: ").append(state.currentParty.getGold()).append("\n");
@@ -207,6 +220,7 @@ public class InnView extends JFrame implements UICommands {
                         .append(h.getName())
                         .append(" [").append(h.getType()).append("]")
                         .append(" L").append(h.getLevel())
+                        .append(" EXP ").append(h.getExperience()).append("/").append(h.expToNextLevel(h.getLevel()))
                         .append(" HP ").append(h.getHp()).append("/").append(h.getMaxHp())
                         .append(" Mana ").append(h.getMana()).append("/").append(h.getMaxMana())
                         .append(h.isAlive() ? "" : " (DEAD)")
@@ -235,6 +249,7 @@ public class InnView extends JFrame implements UICommands {
 
         output.setText(sb.toString());
     }
+
 
     public void start() {
         setVisible(true);

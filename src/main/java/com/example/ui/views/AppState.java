@@ -14,4 +14,10 @@ public class AppState {
 
     public boolean currentlyInInn;
     public boolean currentlyInBattle;
+
+    public boolean pvpMode;
+    public int currentInviteId;
+    public User currentOpponentUser;
+    public Party currentOpponentParty;
+    public String lastBattleSummary;
 }

@@ -2,6 +2,8 @@ package com.example.domain;
 
 public class Campaign {
 
+    public static final int FINAL_ROOM = 30;
+
     private int currentRoom;
     private Party party;
     private Inventory inventory;
@@ -11,10 +13,10 @@ public class Campaign {
 
     public Campaign() {
         this.inventory = new Inventory();
-        this.currentRoom = 1;
+        this.currentRoom = 1;          // next battle room starts at 1
         this.score = 0;
         this.complete = false;
-        this.lastRoomType = RoomType.INN;
+        this.lastRoomType = RoomType.INN; // start at inn before room 1
     }
 
     public Campaign(Party party) {
@@ -39,7 +41,7 @@ public class Campaign {
 
     public void advanceRoom() {
         currentRoom++;
-        if (currentRoom > 30) {
+        if (currentRoom > FINAL_ROOM) {
             complete = true;
         }
     }
@@ -59,5 +61,26 @@ public class Campaign {
         for (Hero h : party.getHeroes()) {
             score += h.getLevel() * 100;
         }
+    }
+
+    public int getRoomsCleared() {
+        return Math.max(0, currentRoom - 1);
+    }
+
+    public int getRoomsRemaining() {
+        if (complete) return 0;
+        return Math.max(0, FINAL_ROOM - currentRoom + 1);
+    }
+
+    public String getLocationDescription() {
+        if (complete) {
+            return "Campaign Complete";
+        }
+
+        if (lastRoomType == RoomType.INN) {
+            return "Inn before room " + currentRoom;
+        }
+
+        return "Battle room " + currentRoom;
     }
 }

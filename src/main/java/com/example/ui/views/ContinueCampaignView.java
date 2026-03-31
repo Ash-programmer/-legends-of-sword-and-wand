@@ -48,20 +48,25 @@ public class ContinueCampaignView extends JFrame implements UICommands {
         state.currentCampaign = c;
         state.currentParty = c.getParty();
         state.currentInventory = c.getInventory();
-        state.currentlyInInn = c.getLastRoomType() == RoomType.INN;
-        state.currentlyInBattle = c.getLastRoomType() == RoomType.BATTLE;
         state.battleInProgress = false;
+        state.pvpMode = false;
+        state.lastBattleSummary = "Campaign loaded. Room " + c.getCurrentRoom() + ".";
 
         output.setText("Loaded campaign.\nRoom: " + c.getCurrentRoom()
-                + "\nLast room type: " + c.getLastRoomType());
+                + "\nCurrent room type: " + c.getLastRoomType());
 
         if (c.getLastRoomType() == RoomType.INN) {
-            new InnView(state, Main.innController).start();
-            dispose();
+            state.currentlyInInn = true;
+            state.currentlyInBattle = false;
+            InnView innView = new InnView(state, Main.innController);
+            innView.start();
         } else {
-            new CampaignView(state, Main.campaignController).start();
-            dispose();
+            state.currentlyInInn = false;
+            state.currentlyInBattle = false;
+            CampaignView campaignView = new CampaignView(state, Main.campaignController);
+            campaignView.start();
         }
+        dispose();
     }
 
     public void start() {

@@ -24,18 +24,24 @@ public class InnService {
         StatusReport report = new StatusReport();
 
         for (Hero h : party.getHeroes()) {
-            if (!h.isAlive()) {
-                h.heal(h.getMaxHp());
-                h.addMana(h.getMaxMana());
-                report.addRevivedHero(h);
-            } else {
-                h.heal(h.getMaxHp());
-                h.addMana(h.getMaxMana());
-                report.addHealedHero(h);
+            int hpBefore = h.getHp();
+            int manaBefore = h.getMana();
+            boolean wasDead = !h.isAlive();
+
+            h.heal(h.getMaxHp());
+            h.addMana(h.getMaxMana());
+
+            int hpHealed = h.getHp() - hpBefore;
+            int manaRestored = h.getMana() - manaBefore;
+
+            if (wasDead) {
+                report.addRevivedHero(h, hpHealed, manaRestored);
+            } else if (hpHealed > 0 || manaRestored > 0) {
+                report.addHealedHero(h, hpHealed, manaRestored);
             }
         }
 
-        report.setMessage("Party rested at inn");
+        report.setMessage("Party rested at inn.");
         return report;
     }
 

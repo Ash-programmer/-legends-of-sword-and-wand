@@ -2,26 +2,31 @@ package com.example.domain;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class BattleState {
 
     private final Party playerParty;
     private final Party enemyParty;
-
     private final List<Hero> turnOrder;
+    private final Map<Hero, String> heroStatuses;
     private int turnIndex;
-
     private boolean finished;
 
     public BattleState(Party playerParty, Party enemyParty) {
         this.playerParty = playerParty;
         this.enemyParty = enemyParty;
         this.turnOrder = new ArrayList<>();
+        this.heroStatuses = new IdentityHashMap<>();
         this.turnIndex = 0;
         this.finished = false;
 
         buildTurnOrder();
+        for (Hero hero : turnOrder) {
+            heroStatuses.put(hero, "Ready");
+        }
         normalizeTurnIndex();
     }
 
@@ -76,12 +81,14 @@ public class BattleState {
             Hero candidate = turnOrder.get(turnIndex);
 
             if (!candidate.isAlive()) {
+                setHeroStatus(candidate, "Dead");
                 turnIndex = (turnIndex + 1) % turnOrder.size();
                 attempts++;
                 continue;
             }
 
             if (candidate.isStunned()) {
+                setHeroStatus(candidate, "Stunned");
                 candidate.clearStun();
                 turnIndex = (turnIndex + 1) % turnOrder.size();
                 attempts++;
@@ -97,8 +104,19 @@ public class BattleState {
     public void nextTurn() {
         if (turnOrder.isEmpty()) return;
 
+        Hero current = getCurrentHero();
+        if (current != null && current.isAlive()) {
+            String status = getHeroStatus(current);
+            if ("Current".equals(status) || "Attacked".equals(status) || "Special".equals(status)) {
+                setHeroStatus(current, "Ready");
+            }
+        }
+
         turnIndex = (turnIndex + 1) % turnOrder.size();
-        getCurrentHero();
+        Hero next = getCurrentHero();
+        if (next != null && next.isAlive()) {
+            setHeroStatus(next, "Current");
+        }
     }
 
     public void delayCurrentHero() {
@@ -112,12 +130,16 @@ public class BattleState {
 
         turnOrder.remove(idx);
         turnOrder.add(current);
+        setHeroStatus(current, "Waiting");
 
         if (turnIndex >= turnOrder.size()) {
             turnIndex = 0;
         }
 
-        getCurrentHero();
+        Hero next = getCurrentHero();
+        if (next != null && next != current) {
+            setHeroStatus(next, "Current");
+        }
     }
 
     public void checkBattleEnd() {
@@ -135,6 +157,22 @@ public class BattleState {
         if (turnIndex < 0 || turnIndex >= turnOrder.size()) {
             turnIndex = 0;
         }
+    }
+
+    public void setHeroStatus(Hero hero, String status) {
+        if (hero != null) {
+            heroStatuses.put(hero, status);
+        }
+    }
+
+    public String getHeroStatus(Hero hero) {
+        if (hero == null) return "";
+        if (!hero.isAlive()) return "Dead";
+        return heroStatuses.getOrDefault(hero, "Ready");
+    }
+
+    public List<Hero> getTurnOrder() {
+        return new ArrayList<>(turnOrder);
     }
 
     public Party getPlayerParty() { return playerParty; }

@@ -16,7 +16,7 @@ public class Hero {
     private int maxMana;
     private int attack;
     private int defense;
-    private int experience;   // progress within current level
+    private int experience;
     private int shield;
     private boolean stunned;
 
@@ -30,7 +30,6 @@ public class Hero {
         this.mana = 50;
         this.maxMana = 50;
 
-        // Make early battles actually work
         this.attack = 12;
         this.defense = 4;
 
@@ -53,10 +52,10 @@ public class Hero {
     public boolean isAlive()   { return hp > 0; }
     public boolean isStunned() { return stunned; }
 
+
     public void takeDamage(int damage) {
         int finalDamage = damage - defense;
 
-        // Ensure attacks actually matter
         if (damage > 0 && finalDamage < 1) {
             finalDamage = 1;
         }
@@ -182,14 +181,23 @@ public class Hero {
         }
     }
 
-    public void loseExperiencePercent(double percent) {
-        int loss = (int) (experience * percent);
-        experience -= loss;
-        if (experience < 0) experience = 0;
+    public int loseCurrentLevelExperiencePercent(double percent) {
+        if (percent <= 0) return 0;
+
+        int lost = (int) Math.floor(experience * percent);
+        experience -= lost;
+
+        if (experience < 0) {
+            experience = 0;
+        }
+
+        return lost;
     }
 
-    public void gainExperience(int exp) {
-        experience += exp;
+    public void gainExperience(int amount) {
+        if (amount <= 0) return;
+
+        experience += amount;
 
         while (experience >= expToNextLevel(level)) {
             experience -= expToNextLevel(level);
@@ -198,16 +206,21 @@ public class Hero {
     }
 
     public int expToNextLevel(int currentLevel) {
-        return 500 + 75 * currentLevel + 20 * currentLevel * currentLevel;
+        int nextLevel = currentLevel + 1;
+        return 500 + 75 * nextLevel + 20 * nextLevel * nextLevel;
     }
 
-    public void levelUp() {
+
+    private void levelUp() {
         level++;
-        maxHp += 5;
-        hp = Math.min(hp + 5, maxHp);
-        maxMana += 2;
-        mana = Math.min(mana + 2, maxMana);
-        attack += 1;
-        defense += 1;
+
+        maxHp += 20;
+        hp = maxHp;
+
+        maxMana += 10;
+        mana = maxMana;
+
+        attack += 5;
+        defense += 3;
     }
 }

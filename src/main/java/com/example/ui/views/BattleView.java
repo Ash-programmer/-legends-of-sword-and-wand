@@ -2,13 +2,10 @@ package com.example.ui.views;
 
 import com.example.Main;
 import com.example.controllers.BattleController;
-import com.example.domain.ActionType;
-import com.example.domain.BattleResult;
-import com.example.domain.BattleState;
-import com.example.domain.Hero;
-import com.example.domain.Item;
-import com.example.domain.Party;
+import com.example.domain.*;
+import com.example.domain.Action;
 import com.example.ui.UICommands;
+import com.example.domain.RoomType;
 
 import javax.swing.*;
 import java.awt.*;
@@ -45,7 +42,7 @@ public class BattleView extends JFrame implements UICommands {
 
     private void init() {
         setTitle("Battle");
-        setSize(820, 580);
+        setSize(860, 620);
         setLocationRelativeTo(null);
 
         output = new JTextArea();
@@ -90,23 +87,34 @@ public class BattleView extends JFrame implements UICommands {
         if (actionLocked) return;
 
         Party playerParty;
+        Party enemyParty;
 
-        if (appState.currentCampaign != null && appState.currentCampaign.getParty() != null) {
+        if (appState.pvpMode) {
+            playerParty = appState.currentParty;
+            enemyParty = appState.currentOpponentParty;
+        } else if (appState.currentCampaign != null && appState.currentCampaign.getParty() != null) {
             playerParty = appState.currentCampaign.getParty();
+            enemyParty = buildEnemyParty();
         } else if (appState.currentParty != null) {
             playerParty = appState.currentParty;
+            enemyParty = buildEnemyParty();
         } else {
             playerParty = new Party();
             playerParty.addHero(new Hero("DemoHero", "Warrior"));
+            enemyParty = buildEnemyParty();
         }
 
-        if (playerParty.getHeroes().isEmpty()) {
+        if (playerParty == null || playerParty.getHeroes().isEmpty()) {
             log("Your party has no heroes.");
             refreshBattleView();
             return;
         }
 
-        Party enemyParty = buildEnemyParty();
+        if (enemyParty == null || enemyParty.getHeroes().isEmpty()) {
+            log("Enemy party could not be loaded.");
+            refreshBattleView();
+            return;
+        }
 
         battleState = controller.startBattle(playerParty, enemyParty);
         appState.battleInProgress = true;
@@ -116,17 +124,24 @@ public class BattleView extends JFrame implements UICommands {
         actionLocked = false;
         battleLog.clear();
 
-        log("Battle started.");
+        log(appState.pvpMode ? "PvP battle started." : "Battle started.");
+        if (battleState.getCurrentHero() != null) {
+            battleState.setHeroStatus(battleState.getCurrentHero(), "Current");
+        }
         refreshBattleView();
 
         if (!isPlayerTurn()) {
-            scheduleSingleEnemyTurn();
+            processSingleEnemyTurn();
         }
     }
 
     private Party buildEnemyParty() {
+        if (appState.pvpMode && appState.currentOpponentParty != null) {
+            return appState.currentOpponentParty;
+        }
+
         Party enemy = new Party();
-        int room = appState.currentCampaign != null ? appState.currentCampaign.getCurrentRoom() : 1;
+        int room = appState.currentCampaign != null ? appState.currentCampaign.getCurrentRoom() : 2;
 
         if (room < 10) {
             enemy.addHero(new Hero("Goblin", "Chaos"));
@@ -189,17 +204,15 @@ public class BattleView extends JFrame implements UICommands {
         actionLocked = true;
         setActionButtonsEnabled(false);
 
-        com.example.domain.Action action =
-                new com.example.domain.Action(type, actor, target, manaCost);
-
+        Action action = new Action(type, actor, target, manaCost);
         BattleResult result = controller.executeTurn(battleState, action);
 
         if (type == ActionType.ATTACK && target != null) {
             log(actor.getName() + " attacked " + target.getName() + ".");
         } else if (type == ActionType.DEFEND) {
-            log(actor.getName() + " defended and recovered HP/mana.");
+            log(actor.getName() + " defended.");
         } else if (type == ActionType.WAIT) {
-            log(actor.getName() + " waited and moved to the end of the turn order.");
+            log(actor.getName() + " waited and moved to the end of the order.");
         } else if (type == ActionType.SPECIAL) {
             log(actor.getName() + " used a special ability.");
         }
@@ -220,7 +233,6 @@ public class BattleView extends JFrame implements UICommands {
             refreshBattleView();
         }
     }
-
 
     private void useItem() {
         if (actionLocked) return;
@@ -307,10 +319,9 @@ public class BattleView extends JFrame implements UICommands {
 
         log("Used " + selectedItem.getName() + " on " + selectedHero.getName() + ".");
 
-        Hero actor = battleState.getCurrentHero();
         BattleResult result = controller.executeTurn(
                 battleState,
-                new com.example.domain.Action(ActionType.WAIT, actor, null, 0)
+                new Action(ActionType.WAIT, battleState.getCurrentHero(), null, 0)
         );
 
         log("Using an item consumed the turn.");
@@ -331,72 +342,53 @@ public class BattleView extends JFrame implements UICommands {
         }
     }
 
-    private void scheduleSingleEnemyTurn() {
-        processSingleEnemyTurn();
-    }
-
     private void processSingleEnemyTurn() {
-        if (battleState == null || battleState.isFinished()) {
-            actionLocked = false;
-            refreshBattleView();
-            return;
-        }
-
-        Hero actor = battleState.getCurrentHero();
-        if (actor == null) {
-            actionLocked = false;
-            refreshBattleView();
-            return;
-        }
-
-        if (isPlayerHero(actor)) {
-            actionLocked = false;
-            refreshBattleView();
-            return;
-        }
-
-        Hero target = firstLivingHero(battleState.getPlayerParty());
-        if (target == null) {
-            battleState.checkBattleEnd();
-            refreshBattleView();
-            if (battleState.isFinished()) {
-                finishBattle(new BattleResult(false, 0, 0, "Player lost"));
-            } else {
+        while (true) {
+            if (battleState == null || battleState.isFinished()) {
                 actionLocked = false;
                 refreshBattleView();
+                return;
             }
-            return;
+
+            Hero actor = battleState.getCurrentHero();
+            if (actor == null) {
+                actionLocked = false;
+                refreshBattleView();
+                return;
+            }
+
+            if (isPlayerHero(actor)) {
+                actionLocked = false;
+                refreshBattleView();
+                return;
+            }
+
+            Hero target = firstLivingHero(battleState.getPlayerParty());
+            if (target == null) {
+                battleState.checkBattleEnd();
+                refreshBattleView();
+                if (battleState.isFinished()) {
+                    finishBattle(new BattleResult(false, 0, 0, "Player lost"));
+                }
+                return;
+            }
+
+            int hpBefore = target.getHp();
+            target.takeDamage(actor.getAttack());
+            battleState.setHeroStatus(actor, "Attacked");
+            battleState.checkBattleEnd();
+            int hpAfter = target.getHp();
+
+            log(actor.getName() + " attacked " + target.getName() + " for " + (hpBefore - hpAfter) + " damage.");
+
+            if (battleState.isFinished()) {
+                refreshBattleView();
+                finishBattle(new BattleResult(false, 0, 0, "Player lost"));
+                return;
+            }
+
+            battleState.nextTurn();
         }
-
-        int hpBefore = target.getHp();
-        int shieldBefore = target.getShield();
-        int actorAttack = actor.getAttack();
-        int targetDefense = target.getDefense();
-
-        target.takeDamage(actorAttack);
-
-        battleState.checkBattleEnd();
-
-        int hpAfter = target.getHp();
-        int shieldAfter = target.getShield();
-        int damageDone = hpBefore - hpAfter;
-
-        log(actor.getName() + " attacked " + target.getName() + ".");
-        log("Actor attack: " + actorAttack + ", Target defense: " + targetDefense);
-        log("HP before: " + hpBefore + ", HP after: " + hpAfter +
-                ", Shield before: " + shieldBefore + ", Shield after: " + shieldAfter +
-                ", Damage dealt: " + damageDone);
-
-        if (battleState.isFinished()) {
-            refreshBattleView();
-            finishBattle(new BattleResult(false, 0, 0, "Player lost"));
-            return;
-        }
-
-        battleState.nextTurn();
-
-        actionLocked = false;
-        refreshBattleView();
     }
 
     private void finishBattle(BattleResult result) {
@@ -404,78 +396,131 @@ public class BattleView extends JFrame implements UICommands {
         refreshBattleView();
         actionLocked = false;
         setActionButtonsEnabled(false);
-        SwingUtilities.invokeLater(this::postBattleChoice);
+        SwingUtilities.invokeLater(() -> finishFlow(result));
     }
 
-    private void postBattleChoice() {
+    private void finishFlow(BattleResult result) {
         appState.battleInProgress = false;
         appState.currentlyInBattle = false;
 
-        String[] options = {"Head Back to Inn", "Go to Next Battle"};
-        int choice = JOptionPane.showOptionDialog(
-                this,
-                "Battle finished. What do you want to do next?",
-                "After Battle",
-                JOptionPane.DEFAULT_OPTION,
-                JOptionPane.QUESTION_MESSAGE,
-                null,
-                options,
-                options[0]
-        );
+        if (appState.pvpMode) {
+            boolean currentUserWon = result.didPlayerWin();
+            String msg = Main.pvpController.completeInvite(
+                    appState.currentInviteId,
+                    appState.currentUser,
+                    currentUserWon
+            );
 
-        if (choice == 0) {
-            appState.currentlyInInn = true;
-            if (appState.currentCampaign != null) {
-                appState.currentCampaign.setLastRoomType(com.example.domain.RoomType.INN);
-                Main.campaignController.saveProgress(appState.currentUser.getUserId(), appState.currentCampaign);
-            }
-            new InnView(appState, Main.innController).start();
+            appState.lastBattleSummary =
+                    result.getMessage() + "\n" + buildSurvivorSummary() + "\n" + msg;
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    appState.lastBattleSummary,
+                    "PvP Result",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+            appState.pvpMode = false;
+            appState.currentInviteId = 0;
+            appState.currentOpponentParty = null;
+            appState.currentOpponentUser = null;
             dispose();
             return;
         }
 
-        if (!isPartyAtFullHealth()) {
-            int confirm = JOptionPane.showConfirmDialog(
-                    this,
-                    "Your heroes are not at full health. Continue to the next battle anyway?",
-                    "Warning",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.WARNING_MESSAGE
-            );
+        String summary = result.getMessage() + "\n" + buildSurvivorSummary();
+        appState.lastBattleSummary = summary;
 
-            if (confirm != JOptionPane.YES_OPTION) {
-                appState.currentlyInInn = true;
-                if (appState.currentCampaign != null) {
-                    appState.currentCampaign.setLastRoomType(com.example.domain.RoomType.INN);
-                    Main.campaignController.saveProgress(appState.currentUser.getUserId(), appState.currentCampaign);
+        if (appState.currentCampaign != null) {
+            int roomNumber = appState.currentCampaign.getCurrentRoom();
+
+            if (result.didPlayerWin()) {
+                if (roomNumber >= com.example.domain.Campaign.FINAL_ROOM) {
+                    appState.currentCampaign.advanceRoom();
+                    appState.currentCampaign.setLastRoomType(RoomType.INN);
+                    Main.campaignController.saveProgress(
+                            appState.currentUser.getUserId(),
+                            appState.currentCampaign
+                    );
+
+                    JOptionPane.showMessageDialog(
+                            this,
+                            summary + "\nYou cleared room " + roomNumber + ".\nCampaign complete.",
+                            "Battle Result",
+                            JOptionPane.INFORMATION_MESSAGE
+                    );
+
+                    CampaignView campaignView = new CampaignView(appState, Main.campaignController);
+                    campaignView.start();
+                    dispose();
+                    return;
                 }
+
+                appState.currentCampaign.advanceRoom();
+
+                appState.currentCampaign.setLastRoomType(RoomType.INN);
+                appState.currentlyInInn = true;
+
+                Main.campaignController.saveProgress(
+                        appState.currentUser.getUserId(),
+                        appState.currentCampaign
+                );
+
+                JOptionPane.showMessageDialog(
+                        this,
+                        summary + "\nYou cleared room " + roomNumber
+                                + ".\nReturning to the inn."
+                                + "\nNext battle room: " + appState.currentCampaign.getCurrentRoom()
+                                + " / " + com.example.domain.Campaign.FINAL_ROOM,
+                        "Battle Result",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+
+                new InnView(appState, Main.innController).start();
+                dispose();
+                return;
+            } else {
+                // loss: do NOT advance room
+                appState.currentCampaign.setLastRoomType(RoomType.INN);
+                appState.currentlyInInn = true;
+
+                Main.campaignController.saveProgress(
+                        appState.currentUser.getUserId(),
+                        appState.currentCampaign
+                );
+
+                JOptionPane.showMessageDialog(
+                        this,
+                        summary + "\nYou lost in room " + roomNumber
+                                + ".\nYou must retry the same room after recovering at the inn.",
+                        "Battle Result",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+
                 new InnView(appState, Main.innController).start();
                 dispose();
                 return;
             }
         }
 
-        if (appState.currentCampaign != null) {
-            appState.currentCampaign.advanceRoom();
-            appState.currentCampaign.setLastRoomType(com.example.domain.RoomType.BATTLE);
-            Main.campaignController.saveProgress(appState.currentUser.getUserId(), appState.currentCampaign);
-        }
-
-        appState.currentlyInBattle = true;
-        appState.battleInProgress = true;
-        startBattle();
+        JOptionPane.showMessageDialog(this, summary, "Battle Result", JOptionPane.INFORMATION_MESSAGE);
+        dispose();
     }
 
-    private boolean isPartyAtFullHealth() {
-        Party party = battleState != null ? battleState.getPlayerParty() : appState.currentParty;
-        if (party == null) return true;
-
-        for (Hero hero : party.getHeroes()) {
-            if (hero.getHp() < hero.getMaxHp()) {
-                return false;
+    private String buildSurvivorSummary() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Surviving heroes: ");
+        List<Hero> survivors = livingHeroes(battleState.getPlayerParty());
+        if (survivors.isEmpty()) {
+            sb.append("none");
+        } else {
+            for (int i = 0; i < survivors.size(); i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(survivors.get(i).getName());
             }
         }
-        return true;
+        return sb.toString();
     }
 
     private void applyBattleOutcome(BattleResult result) {
@@ -484,45 +529,139 @@ public class BattleView extends JFrame implements UICommands {
 
         Party playerParty = battleState.getPlayerParty();
 
-        if (result.didPlayerWin()) {
-            playerParty.addGold(result.getGoldGained());
+        if (appState.pvpMode) {
+            log("PvP battle: no gold or experience awarded.");
+            return;
+        }
 
-            int livingCount = 0;
+        if (result.didPlayerWin()) {
+            int totalExp = 0;
+            int totalGold = 0;
+
+            for (Hero enemy : battleState.getEnemyParty().getHeroes()) {
+                int enemyLevel = enemy.getLevel();
+                totalExp += 50 * enemyLevel;
+                totalGold += 75 * enemyLevel;
+            }
+
+            java.util.List<Hero> standingHeroes = new java.util.ArrayList<>();
             for (Hero hero : playerParty.getHeroes()) {
-                if (hero.isAlive()) {
-                    livingCount++;
+                if (hero.getHp() > 1) {
+                    standingHeroes.add(hero);
                 }
             }
 
-            if (livingCount > 0) {
-                int expEach = result.getExpGained() / livingCount;
-                for (Hero hero : playerParty.getHeroes()) {
-                    if (hero.isAlive()) {
-                        hero.gainExperience(expEach);
-                    }
+            int expPerHero = 0;
+            if (!standingHeroes.isEmpty()) {
+                expPerHero = totalExp / standingHeroes.size();
+            }
+
+            playerParty.addGold(totalGold);
+
+            StringBuilder rewardLog = new StringBuilder();
+            rewardLog.append("Victory rewards:\n");
+            rewardLog.append("Total EXP: ").append(totalExp).append("\n");
+            rewardLog.append("Total Gold: ").append(totalGold).append("\n");
+            rewardLog.append("Standing heroes: ").append(standingHeroes.size()).append("\n");
+            rewardLog.append("EXP per standing hero: ").append(expPerHero).append("\n");
+
+            for (Hero hero : standingHeroes) {
+                int oldLevel = hero.getLevel();
+                hero.gainExperience(expPerHero);
+
+                rewardLog.append(hero.getName())
+                        .append(" gained ")
+                        .append(expPerHero)
+                        .append(" EXP");
+
+                if (hero.getLevel() > oldLevel) {
+                    rewardLog.append(" and leveled up to ").append(hero.getLevel());
                 }
+
+                rewardLog.append(".\n");
             }
 
             if (appState.currentCampaign != null) {
-                appState.currentCampaign.addScore(result.getGoldGained() + result.getExpGained());
-                Main.campaignController.saveProgress(appState.currentUser.getUserId(), appState.currentCampaign);
+                appState.currentCampaign.addScore(totalGold + totalExp);
+                Main.campaignController.saveProgress(
+                        appState.currentUser.getUserId(),
+                        appState.currentCampaign
+                );
             }
 
-            log("Victory rewards applied.");
+            log(rewardLog.toString());
         } else {
-            int goldLoss = Math.max(1, playerParty.getGold() / 10);
+            int goldLoss = (int) Math.floor(playerParty.getGold() * 0.10);
             playerParty.spendGold(goldLoss);
 
+            StringBuilder penaltyLog = new StringBuilder();
+            penaltyLog.append("Defeat penalties:\n");
+            penaltyLog.append("Lost gold: ").append(goldLoss).append("\n");
+
             for (Hero hero : playerParty.getHeroes()) {
-                hero.loseExperiencePercent(0.30);
+                int lostExp = hero.loseCurrentLevelExperiencePercent(0.30);
+                penaltyLog.append(hero.getName())
+                        .append(" lost ")
+                        .append(lostExp)
+                        .append(" EXP from the current level.\n");
             }
 
             if (appState.currentCampaign != null) {
-                Main.campaignController.saveProgress(appState.currentUser.getUserId(), appState.currentCampaign);
+                Main.campaignController.saveProgress(
+                        appState.currentUser.getUserId(),
+                        appState.currentCampaign
+                );
             }
 
-            log("Defeat penalties applied.");
+            log(penaltyLog.toString());
         }
+    }
+
+
+    private void postBattleChoice() {
+        appState.battleInProgress = false;
+        appState.currentlyInBattle = false;
+
+        if (appState.currentCampaign != null) {
+            int clearedRoom = appState.currentCampaign.getCurrentRoom();
+
+            if (clearedRoom >= com.example.domain.Campaign.FINAL_ROOM) {
+                appState.currentCampaign.advanceRoom();
+                appState.currentCampaign.setLastRoomType(RoomType.INN);
+                Main.campaignController.saveProgress(appState.currentUser.getUserId(), appState.currentCampaign);
+
+                JOptionPane.showMessageDialog(
+                        this,
+                        "You cleared room " + clearedRoom + ".\nThe campaign is complete.",
+                        "Campaign Complete",
+                        JOptionPane.INFORMATION_MESSAGE
+                );
+
+                dispose();
+                return;
+            }
+
+            appState.currentCampaign.advanceRoom(); // next battle room
+            appState.currentCampaign.setLastRoomType(RoomType.INN);
+            Main.campaignController.saveProgress(appState.currentUser.getUserId(), appState.currentCampaign);
+
+            appState.currentlyInInn = true;
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "You cleared room " + clearedRoom + ".\nReturning to the inn.\nNext battle room: "
+                            + appState.currentCampaign.getCurrentRoom() + " / "
+                            + com.example.domain.Campaign.FINAL_ROOM,
+                    "Battle Finished",
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+
+            new InnView(appState, Main.innController).start();
+            dispose();
+            return;
+        }
+
+        dispose();
     }
 
     private void refreshBattleView() {
@@ -547,10 +686,19 @@ public class BattleView extends JFrame implements UICommands {
             sb.append("Current actor: ").append(current.getName())
                     .append(" [").append(current.getType()).append("]\n");
             sb.append("Side: ").append(isPlayerHero(current) ? "Player" : "Enemy").append("\n");
-            sb.append("Status: ").append(current.isAlive() ? "Ready" : "Dead").append("\n\n");
+            sb.append("Status: ").append(battleState.getHeroStatus(current)).append("\n\n");
         }
 
-        sb.append("=== PLAYER TEAM ===\n");
+        sb.append("=== TURN ORDER ===\n");
+        for (Hero hero : battleState.getTurnOrder()) {
+            sb.append("- ")
+                    .append(hero.getName())
+                    .append(" (").append(isPlayerHero(hero) ? "Player" : "Enemy").append(")")
+                    .append(" -> ").append(battleState.getHeroStatus(hero))
+                    .append("\n");
+        }
+
+        sb.append("\n=== PLAYER TEAM ===\n");
         appendParty(sb, battleState.getPlayerParty());
 
         sb.append("\n=== ENEMY TEAM ===\n");
@@ -571,8 +719,17 @@ public class BattleView extends JFrame implements UICommands {
             }
         }
 
+        if (appState.currentCampaign != null) {
+            sb.append("=== CAMPAIGN PROGRESS ===\n");
+            sb.append("Current location: ").append(appState.currentCampaign.getLocationDescription()).append("\n");
+            sb.append("Battle room: ").append(appState.currentCampaign.getCurrentRoom())
+                    .append(" / ").append(com.example.domain.Campaign.FINAL_ROOM).append("\n");
+            sb.append("Rooms cleared: ").append(appState.currentCampaign.getRoomsCleared()).append("\n");
+            sb.append("Rooms remaining: ").append(appState.currentCampaign.getRoomsRemaining()).append("\n\n");
+        }
+
         sb.append("\n=== BATTLE LOG ===\n");
-        int start = Math.max(0, battleLog.size() - 10);
+        int start = Math.max(0, battleLog.size() - 12);
         for (int i = start; i < battleLog.size(); i++) {
             sb.append("- ").append(battleLog.get(i)).append("\n");
         }
@@ -588,11 +745,13 @@ public class BattleView extends JFrame implements UICommands {
                     .append(h.getName())
                     .append(" [").append(h.getType()).append("]")
                     .append(" L").append(h.getLevel())
+                    .append(" EXP ").append(h.getExperience()).append("/").append(h.expToNextLevel(h.getLevel()))
                     .append(" HP ").append(h.getHp()).append("/").append(h.getMaxHp())
                     .append(" Mana ").append(h.getMana()).append("/").append(h.getMaxMana())
                     .append(" ATK ").append(h.getAttack())
                     .append(" DEF ").append(h.getDefense())
                     .append(" Shield ").append(h.getShield())
+                    .append(" Status ").append(battleState.getHeroStatus(h))
                     .append(h.isAlive() ? "" : " (DEAD)")
                     .append("\n");
         }
@@ -612,7 +771,7 @@ public class BattleView extends JFrame implements UICommands {
         defendButton.setEnabled(enabled);
         waitButton.setEnabled(enabled);
         specialButton.setEnabled(enabled);
-        useItemButton.setEnabled(enabled);
+        useItemButton.setEnabled(enabled && !appState.pvpMode);
     }
 
     private boolean isPlayerTurn() {

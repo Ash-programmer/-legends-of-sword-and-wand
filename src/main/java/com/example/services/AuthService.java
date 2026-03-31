@@ -43,6 +43,21 @@ public class AuthService {
         String hash = Integer.toString(password.hashCode());
         if (!user.getPasswordHash().equals(hash)) return null;
 
+        hydrateUser(user);
+        currentUser = user;
+        return user;
+    }
+
+    public User refreshUser(User user) {
+        if (user == null) return null;
+        User reloaded = userRepo.findByUsername(user.getUsername());
+        if (reloaded == null) return user;
+        hydrateUser(reloaded);
+        currentUser = reloaded;
+        return reloaded;
+    }
+
+    private void hydrateUser(User user) {
         user.getCampaigns().clear();
         user.getSavedParties().clear();
 
@@ -55,9 +70,6 @@ public class AuthService {
         for (Party p : savedParties) {
             user.addParty(p);
         }
-
-        currentUser = user;
-        return user;
     }
 
     public void logout() {

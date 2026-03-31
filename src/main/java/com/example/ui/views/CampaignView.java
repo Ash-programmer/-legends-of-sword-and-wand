@@ -2,12 +2,7 @@ package com.example.ui.views;
 
 import com.example.Main;
 import com.example.controllers.CampaignController;
-import com.example.domain.Hero;
-import com.example.domain.Inventory;
-import com.example.domain.Item;
-import com.example.domain.Party;
-import com.example.domain.RoomType;
-import com.example.domain.Score;
+import com.example.domain.*;
 import com.example.ui.UICommands;
 
 import javax.swing.*;
@@ -32,7 +27,7 @@ public class CampaignView extends JFrame implements UICommands {
 
     private void init() {
         setTitle("Campaign");
-        setSize(780, 540);
+        setSize(820, 560);
         setLocationRelativeTo(null);
 
         output = new JTextArea();
@@ -42,8 +37,7 @@ public class CampaignView extends JFrame implements UICommands {
         heroNameField = new JTextField("Hero", 10);
 
         JButton start = new JButton("Start New Campaign");
-        JButton toInn = new JButton("Go to Inn");
-        JButton toBattle = new JButton("Continue to Battle");
+        JButton nextRoom = new JButton("Visit Next Room");
         JButton useItem = new JButton("Use Item");
         JButton save = new JButton("Save Progress");
         JButton endCampaign = new JButton("End Campaign");
@@ -57,8 +51,7 @@ public class CampaignView extends JFrame implements UICommands {
         top.add(start);
 
         JPanel bottom = new JPanel();
-        bottom.add(toInn);
-        bottom.add(toBattle);
+        bottom.add(nextRoom);
         bottom.add(useItem);
         bottom.add(save);
         bottom.add(endCampaign);
@@ -69,8 +62,7 @@ public class CampaignView extends JFrame implements UICommands {
         add(bottom, BorderLayout.SOUTH);
 
         start.addActionListener(e -> startCampaign());
-        toInn.addActionListener(e -> goToInn());
-        toBattle.addActionListener(e -> continueToBattle());
+        nextRoom.addActionListener(e -> visitNextRoom());
         useItem.addActionListener(e -> useItemOnHero());
         save.addActionListener(e -> saveProgress());
         endCampaign.addActionListener(e -> endCampaignFlow());
@@ -91,106 +83,74 @@ public class CampaignView extends JFrame implements UICommands {
         state.currentParty = party;
         state.currentInventory = new Inventory();
         state.currentCampaign = controller.startCampaign(state.currentUser, party);
-
         state.currentUser.getCampaigns().clear();
         state.currentUser.addCampaign(state.currentCampaign);
-
         state.currentlyInInn = true;
         state.currentlyInBattle = false;
         state.battleInProgress = false;
+        state.pvpMode = false;
+        state.lastBattleSummary = "Started new campaign. Room 1 is an inn.";
 
-        append("Started new campaign.");
-        append("The first room is the inn.");
-        refreshOutput();
-
-        new InnView(state, Main.innController).start();
-    }
-
-    private void goToInn() {
-        if (state.currentCampaign == null) {
-            append("No active campaign.");
-            return;
-        }
-
-        controller.loadCampaign(state.currentUser.getUserId());
-        state.currentlyInInn = true;
-        state.currentlyInBattle = false;
-        state.battleInProgress = false;
-        state.currentCampaign.setLastRoomType(RoomType.INN);
         controller.saveProgress(state.currentUser.getUserId(), state.currentCampaign);
-
-        append("Returned to the inn.");
         refreshOutput();
         new InnView(state, Main.innController).start();
+        dispose();
     }
 
-    private void continueToBattle() {
-        if (state.currentCampaign == null || state.currentParty == null) {
-            append("No active campaign.");
+    private void visitNextRoom() {
+        if (state.currentCampaign == null) {
+            appendSummary("No active campaign.");
+            refreshOutput();
             return;
         }
 
-        if (!isPartyAtFullHealth()) {
-            int choice = JOptionPane.showConfirmDialog(
-                    this,
-                    "Your party is not at full health. Continue to battle anyway?",
-                    "Warning",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.WARNING_MESSAGE
-            );
-
-            if (choice != JOptionPane.YES_OPTION) {
-                append("Stayed out of battle.");
-                return;
-            }
+        if (state.currentCampaign.isComplete()) {
+            endCampaignFlow();
+            return;
         }
+
+        state.currentCampaign.setLastRoomType(RoomType.BATTLE);
+        controller.saveProgress(state.currentUser.getUserId(), state.currentCampaign);
 
         state.currentlyInInn = false;
         state.currentlyInBattle = true;
         state.battleInProgress = true;
-        state.currentCampaign.setLastRoomType(RoomType.BATTLE);
-        controller.saveProgress(state.currentUser.getUserId(), state.currentCampaign);
 
-        append("Continuing to battle.");
-        refreshOutput();
+        appendSummary("Entering battle room " + state.currentCampaign.getCurrentRoom() + ".");
         new BattleView(state, Main.battleController).start();
-    }
-
-    private boolean isPartyAtFullHealth() {
-        for (Hero hero : state.currentParty.getHeroes()) {
-            if (hero.getHp() < hero.getMaxHp()) {
-                return false;
-            }
-        }
-        return true;
+        dispose();
     }
 
     private void saveProgress() {
         if (state.currentCampaign == null) {
-            append("No campaign to save.");
+            appendSummary("No campaign to save.");
+            refreshOutput();
             return;
         }
 
         controller.saveProgress(state.currentUser.getUserId(), state.currentCampaign);
-        append("Campaign progress saved.");
+        appendSummary("Campaign progress saved.");
         refreshOutput();
     }
 
     private void useItemOnHero() {
         if (state.currentCampaign == null || state.currentInventory == null || state.currentParty == null) {
-            append("No active campaign.");
+            appendSummary("No active campaign.");
+            refreshOutput();
             return;
         }
 
         List<Item> items = state.currentInventory.getItems();
         if (items.isEmpty()) {
-            append("Inventory is empty.");
+            appendSummary("Inventory is empty.");
+            refreshOutput();
             return;
         }
 
         List<Hero> heroes = state.currentParty.getHeroes();
         if (heroes.isEmpty()) {
-            append("No heroes in party.");
+            appendSummary("No heroes in party.");
+            refreshOutput();
             return;
         }
 
@@ -239,7 +199,7 @@ public class CampaignView extends JFrame implements UICommands {
         Hero selectedHero = heroes.get(heroIndex);
 
         boolean used = state.currentInventory.useItem(selectedItem, selectedHero);
-        append(used
+        appendSummary(used
                 ? "Used " + selectedItem.getName() + " on " + selectedHero.getName() + "."
                 : "Could not use item.");
         refreshOutput();
@@ -247,7 +207,8 @@ public class CampaignView extends JFrame implements UICommands {
 
     private void endCampaignFlow() {
         if (state.currentCampaign == null) {
-            append("No active campaign.");
+            appendSummary("No active campaign.");
+            refreshOutput();
             return;
         }
 
@@ -279,7 +240,8 @@ public class CampaignView extends JFrame implements UICommands {
             );
 
             if (selected == null) {
-                append("End campaign cancelled.");
+                appendSummary("End campaign cancelled.");
+                refreshOutput();
                 return;
             }
 
@@ -302,26 +264,24 @@ public class CampaignView extends JFrame implements UICommands {
         state.currentlyInInn = false;
         state.currentlyInBattle = false;
         state.battleInProgress = false;
-
-        append("Campaign ended. Final score: " + score.getValue());
+        appendSummary("Campaign ended. Final score added: " + score.getValue());
         refreshOutput();
     }
 
     private void saveAndExit() {
         if (state.currentCampaign == null) {
-            append("No active campaign.");
             dispose();
             return;
         }
 
         boolean canExit = controller.canExitCampaign(state.battleInProgress, state.currentCampaign);
         if (!canExit) {
-            append("You cannot exit while a battle is in progress.");
+            appendSummary("You cannot exit while a battle is in progress.");
+            refreshOutput();
             return;
         }
 
         controller.saveProgress(state.currentUser.getUserId(), state.currentCampaign);
-        append("Campaign saved. Closing campaign window.");
         dispose();
     }
 
@@ -338,16 +298,13 @@ public class CampaignView extends JFrame implements UICommands {
             sb.append("No active campaign.\n");
         } else {
             sb.append("=== CAMPAIGN ===\n");
-            sb.append("Current room: ").append(state.currentCampaign.getCurrentRoom()).append("\n");
-            sb.append("Last room type: ").append(state.currentCampaign.getLastRoomType()).append("\n");
+            sb.append("Current location: ").append(state.currentCampaign.getLocationDescription()).append("\n");
+            sb.append("Next battle room: ").append(state.currentCampaign.getCurrentRoom())
+                    .append(" / ").append(com.example.domain.Campaign.FINAL_ROOM).append("\n");
+            sb.append("Rooms cleared: ").append(state.currentCampaign.getRoomsCleared()).append("\n");
+            sb.append("Rooms remaining: ").append(state.currentCampaign.getRoomsRemaining()).append("\n");
             sb.append("Complete: ").append(state.currentCampaign.isComplete()).append("\n");
             sb.append("Campaign score: ").append(state.currentCampaign.getScore()).append("\n\n");
-        }
-
-        if (state.currentlyInInn) {
-            sb.append("Current location: INN\n\n");
-        } else if (state.currentlyInBattle) {
-            sb.append("Current location: BATTLE\n\n");
         }
 
         if (state.currentParty != null) {
@@ -358,6 +315,7 @@ public class CampaignView extends JFrame implements UICommands {
                 sb.append("- ")
                         .append(h.getName()).append(" [").append(h.getType()).append("]")
                         .append(" L").append(h.getLevel())
+                        .append(" EXP ").append(h.getExperience()).append("/").append(h.expToNextLevel(h.getLevel()))
                         .append(" HP ").append(h.getHp()).append("/").append(h.getMaxHp())
                         .append(" Mana ").append(h.getMana())
                         .append(" ATK ").append(h.getAttack())
@@ -387,8 +345,8 @@ public class CampaignView extends JFrame implements UICommands {
         output.setText(sb.toString());
     }
 
-    private void append(String message) {
-        output.append("\n" + message + "\n");
+    private void appendSummary(String message) {
+        state.lastBattleSummary = message;
     }
 
     private int findSelectedIndex(String[] options, String selected) {

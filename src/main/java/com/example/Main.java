@@ -27,7 +27,7 @@ public class Main {
         CampaignService campaignService = new CampaignService(campaignRepo, partyRepo, userRepo);
         BattleService battleService = new BattleService();
         InnService innService = new InnService(inventoryService, partyService);
-        InvitationService invitationService = new InvitationService(userRepo);
+        InvitationService invitationService = new InvitationService(userRepo, partyRepo);
 
         authController = new AuthController(authService);
         campaignController = new CampaignController(campaignService);

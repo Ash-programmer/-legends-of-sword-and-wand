@@ -9,6 +9,7 @@ import com.example.persistence.repositories.CampaignRepo;
 import com.example.persistence.repositories.PartyRepo;
 import com.example.persistence.repositories.UserRepo;
 
+import java.util.Comparator;
 import java.util.List;
 
 public class CampaignService {
@@ -34,17 +35,38 @@ public class CampaignService {
         return campaign;
     }
 
-    public void moveToInn(Campaign campaign) {
-        campaign.setLastRoomType(RoomType.INN);
-    }
+    public RoomType visitNextRoom(Campaign campaign) {
+        if (campaign == null) {
+            throw new IllegalArgumentException("Campaign cannot be null");
+        }
 
-    public void moveToBattle(Campaign campaign) {
-        campaign.setLastRoomType(RoomType.BATTLE);
-    }
-
-    public void completeBattleAndAdvance(Campaign campaign) {
         campaign.advanceRoom();
-        campaign.setLastRoomType(RoomType.BATTLE);
+
+        if (campaign.isComplete()) {
+            return campaign.getLastRoomType();
+        }
+
+        RoomType nextType = roomTypeFor(campaign.getCurrentRoom());
+        campaign.setLastRoomType(nextType);
+        return nextType;
+    }
+
+    public RoomType previewNextRoomType(Campaign campaign) {
+        if (campaign == null || campaign.isComplete()) {
+            return null;
+        }
+        int nextRoom = campaign.getCurrentRoom() + 1;
+        if (nextRoom > 30) {
+            return null;
+        }
+        return roomTypeFor(nextRoom);
+    }
+
+    private RoomType roomTypeFor(int roomNumber) {
+        if (roomNumber <= 1) {
+            return RoomType.INN;
+        }
+        return roomNumber % 5 == 0 ? RoomType.INN : RoomType.BATTLE;
     }
 
     public void saveProgress(int userId, Campaign campaign) {
@@ -65,16 +87,16 @@ public class CampaignService {
     }
 
     public boolean isCampaignComplete(Campaign campaign) {
-        return campaign != null && campaign.getCurrentRoom() > 30 || (campaign != null && campaign.isComplete());
+        return campaign != null && (campaign.getCurrentRoom() > 30 || campaign.isComplete());
     }
 
     public Score endCampaign(User user, Campaign campaign, boolean keepParty, Integer replacePartyId) {
         campaign.calculateFinalScore();
         Score score = Score.calculate(user, campaign);
 
-        user.setScore(score.getValue());
-        user.setRanking(score.getValue());
+        user.setScore(user.getScore() + score.getValue());
         userRepo.save(user);
+        recalculateRankings();
 
         if (keepParty && campaign.getParty() != null) {
             List<Party> savedParties = partyRepo.loadForUser(user.getUserId());
@@ -90,5 +112,16 @@ public class CampaignService {
         campaign.setComplete(true);
         campaignRepo.deleteByUserId(user.getUserId());
         return score;
+    }
+
+    public void recalculateRankings() {
+        List<User> users = userRepo.findAll();
+        users.sort(Comparator.comparingInt(User::getScore).reversed().thenComparing(User::getUsername));
+
+        int rank = 1;
+        for (User entry : users) {
+            entry.setRanking(rank++);
+            userRepo.save(entry);
+        }
     }
 }

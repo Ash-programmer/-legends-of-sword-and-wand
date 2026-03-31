@@ -2,6 +2,7 @@ package com.example.controllers;
 
 import com.example.domain.Campaign;
 import com.example.domain.Party;
+import com.example.domain.RoomType;
 import com.example.domain.Score;
 import com.example.domain.User;
 import com.example.services.CampaignService;
@@ -18,16 +19,12 @@ public class CampaignController {
         return campaignService.startCampaign(user, party);
     }
 
-    public void moveToInn(Campaign campaign) {
-        campaignService.moveToInn(campaign);
+    public RoomType visitNextRoom(Campaign campaign) {
+        return campaignService.visitNextRoom(campaign);
     }
 
-    public void moveToBattle(Campaign campaign) {
-        campaignService.moveToBattle(campaign);
-    }
-
-    public void completeBattleAndAdvance(Campaign campaign) {
-        campaignService.completeBattleAndAdvance(campaign);
+    public RoomType previewNextRoomType(Campaign campaign) {
+        return campaignService.previewNextRoomType(campaign);
     }
 
     public void saveProgress(int userId, Campaign campaign) {
@@ -40,6 +37,10 @@ public class CampaignController {
 
     public boolean canExitCampaign(boolean battleInProgress, Campaign campaign) {
         return campaignService.canExitCampaign(battleInProgress, campaign);
+    }
+
+    public boolean isCampaignComplete(Campaign campaign) {
+        return campaignService.isCampaignComplete(campaign);
     }
 
     public Score endCampaign(User user, Campaign campaign, boolean keepParty, Integer replacePartyId) {

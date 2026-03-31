@@ -35,34 +35,35 @@ public class ExecuteTurnUseCase {
             return new BattleResult(false, 0, 0, "It is not " + actor.getName() + "'s turn.");
         }
 
-        switch (action.getType()) {
+        state.setHeroStatus(actor, "Current");
 
+        switch (action.getType()) {
             case ATTACK -> {
                 if (target == null) {
                     return new BattleResult(false, 0, 0, "Attack requires a target.");
                 }
                 new AttackCommand(actor, target).execute();
+                state.setHeroStatus(actor, "Attacked");
             }
-
             case DEFEND -> {
                 new DefendCommand(actor).execute();
+                state.setHeroStatus(actor, "Defending");
             }
-
             case WAIT -> {
                 if (!waitQueue.isEmpty()) {
                     return new BattleResult(false, 0, 0, actor.getName() + " already chose to wait.");
                 }
                 waitQueue.add(actor);
-                state.nextTurn();
+                state.delayCurrentHero();
                 return new BattleResult(false, 0, 0, actor.getName() + " is waiting.");
             }
-
             case SPECIAL -> {
                 if (!actor.hasManaFor(action)) {
                     return new BattleResult(false, 0, 0,
                             actor.getName() + " does not have enough mana.");
                 }
                 actor.castSpecial(target, state.getPlayerParty(), state.getEnemyParty());
+                state.setHeroStatus(actor, "Special");
             }
         }
 
@@ -83,10 +84,10 @@ public class ExecuteTurnUseCase {
         boolean playerWon = !state.getEnemyParty().hasLivingHeroes();
 
         if (playerWon) {
-            int totalExp  = 0;
+            int totalExp = 0;
             int totalGold = 0;
             for (Hero enemy : state.getEnemyParty().getHeroes()) {
-                totalExp  += 50 * enemy.getLevel();
+                totalExp += 50 * enemy.getLevel();
                 totalGold += 75 * enemy.getLevel();
             }
 

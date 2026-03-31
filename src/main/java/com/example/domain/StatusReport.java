@@ -5,30 +5,30 @@ import java.util.List;
 
 public class StatusReport {
 
-    private List<Hero> healedHeroes;
-    private List<Hero> revivedHeroes;
+    private final List<String> healedDetails;
+    private final List<String> revivedDetails;
     private String message;
 
     public StatusReport() {
-        this.healedHeroes = new ArrayList<>();
-        this.revivedHeroes = new ArrayList<>();
+        this.healedDetails = new ArrayList<>();
+        this.revivedDetails = new ArrayList<>();
         this.message = "";
     }
 
-    public void addHealedHero(Hero hero) {
-        healedHeroes.add(hero);
+    public void addHealedHero(Hero hero, int hpHealed, int manaRestored) {
+        healedDetails.add(hero.getName() + " healed +" + hpHealed + " HP, +" + manaRestored + " mana");
     }
 
-    public void addRevivedHero(Hero hero) {
-        revivedHeroes.add(hero);
+    public void addRevivedHero(Hero hero, int hpHealed, int manaRestored) {
+        revivedDetails.add(hero.getName() + " revived with +" + hpHealed + " HP, +" + manaRestored + " mana");
     }
 
-    public List<Hero> getHealedHeroes() {
-        return healedHeroes;
+    public List<String> getHealedDetails() {
+        return healedDetails;
     }
 
-    public List<Hero> getRevivedHeroes() {
-        return revivedHeroes;
+    public List<String> getRevivedDetails() {
+        return revivedDetails;
     }
 
     public void setMessage(String message) {
